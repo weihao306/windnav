@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: windnav
+      POSTGRES_USER: windnav
+      POSTGRES_PASSWORD: windnav_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U windnav -d windnav"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: production
+      HTTP_ADDR: :8080
+      DB_DRIVER: postgres
+      DATABASE_URL: postgres://windnav:windnav_password@postgres:5432/windnav?sslmode=disable
+      JWT_SECRET: replace-with-a-long-random-secret
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: change-this-password
+      STATIC_DIR: /app/public
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

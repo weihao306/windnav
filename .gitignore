@@ -3,3 +3,12 @@
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+frontend/node_modules
+frontend/dist
+backend/data
+data
+.env
+*.db
+*.db-shm
+*.db-wal
