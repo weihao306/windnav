@@ -17,7 +17,9 @@ function logout() {
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-5 lg:flex-row">
       <aside class="rounded-[8px] border border-slate-200 bg-white p-3 lg:sticky lg:top-5 lg:h-[calc(100vh-40px)] lg:w-60">
         <RouterLink to="/" class="mb-4 flex items-center justify-start gap-2 rounded-[8px] px-3 py-2 font-semibold text-slate-950">
-          <Home class="h-5 w-5 text-cyan-600" />
+          <svg width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <use href="/icons.svg#windnav-icon"/>
+          </svg>
           WindNav
         </RouterLink>
         <nav class="grid gap-1">

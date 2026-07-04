@@ -141,7 +141,11 @@ function getFallbackIcon(site: Site) {
   <main class="home-layout min-h-screen" :class="{ 'sidebar-collapsed': sidebarCollapsed }" :data-theme="themeMode">
     <aside class="left-sidebar hidden xl:flex">
       <div class="sidebar-brand">
-        <div class="brand-mark">W</div>
+        <div class="brand-mark">
+          <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <use href="/icons.svg#windnav-icon"/>
+          </svg>
+        </div>
         <div class="sidebar-brand-text">
           <p class="text-base font-bold text-white">{{ summary.site_title ?? 'WindNav' }}</p>
           <p class="text-xs text-slate-400">Navigation</p>
@@ -181,7 +185,11 @@ function getFallbackIcon(site: Site) {
       <header class="hero-panel">
         <nav class="hero-nav">
           <div class="inline-flex items-center gap-2 text-sm font-medium text-slate-300 xl:hidden">
-            <span class="brand-mark brand-mark-sm">W</span>
+            <span class="brand-mark brand-mark-sm">
+              <svg width="30" height="30" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <use href="/icons.svg#windnav-icon"/>
+              </svg>
+            </span>
             {{ summary.site_title ?? 'WindNav' }}
           </div>
           <div class="hero-actions">

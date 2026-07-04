@@ -30,8 +30,10 @@ async function submit() {
   <main class="grid min-h-screen place-items-center bg-[#f6f8fb] px-5">
     <form class="w-full max-w-sm rounded-[8px] border border-slate-200 bg-white p-6 card-shadow" @submit.prevent="submit">
       <div class="mb-6">
-        <div class="mb-3 flex h-11 w-11 items-center justify-center rounded-[8px] bg-cyan-50 text-cyan-700">
-          <LogIn class="h-5 w-5" />
+        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-[8px]">
+          <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <use href="/icons.svg#windnav-icon"/>
+          </svg>
         </div>
         <h1 class="text-2xl font-semibold text-slate-950">后台登录</h1>
       </div>
