@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
 import { ExternalLink, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getData, postData } from '../api/client'
 import type { Category, SettingMap, Site } from '../api/types'
 
@@ -9,6 +9,8 @@ const searchText = ref('')
 const activeCategory = ref('all')
 const themeMode = ref<'dark' | 'light'>('dark')
 const sidebarCollapsed = ref(false)
+const currentTime = ref(new Date())
+let clockTimer: number | undefined
 
 const summaryQuery = useQuery({
   queryKey: ['public-summary'],
@@ -42,6 +44,18 @@ const groupedSections = computed(() => categories.value
   .filter((section) => section.sites.length > 0))
 const uncategorizedSites = computed(() => filteredSites.value.filter((site) => !site.categoryId && !site.category?.slug))
 const isDarkMode = computed(() => themeMode.value === 'dark')
+const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
+const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
+
+onMounted(() => {
+  clockTimer = window.setInterval(() => {
+    currentTime.value = new Date()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (clockTimer) window.clearInterval(clockTimer)
+})
 
 function toggleTheme() {
   themeMode.value = isDarkMode.value ? 'light' : 'dark'
@@ -116,13 +130,20 @@ async function openSite(site: Site) {
           </div>
         </nav>
 
-        <div class="hero-copy">
-          <div class="hero-badge">
-            <Sparkles class="h-4 w-4" />
-            WindNav Start Page
+        <div class="hero-body">
+          <div class="hero-copy">
+            <div class="hero-badge">
+              <Sparkles class="h-4 w-4" />
+              WindNav Start Page
+            </div>
+            <h1>{{ summary.site_title ?? 'WindNav' }}</h1>
+            <p>{{ summary.site_subtitle ?? '简单轻快的自建导航页' }}</p>
           </div>
-          <h1>{{ summary.site_title ?? 'WindNav' }}</h1>
-          <p>{{ summary.site_subtitle ?? '简单轻快的自建导航页' }}</p>
+
+          <div class="clock-card" aria-label="当前日期时间">
+            <div class="clock-time">{{ displayTime }}</div>
+            <div class="clock-date">{{ displayDate }}</div>
+          </div>
         </div>
 
         <label class="search-box">

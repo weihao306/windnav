@@ -244,7 +244,7 @@ button {
 }
 
 .hero-nav,
-.hero-copy,
+.hero-body,
 .search-box,
 .category-strip {
   position: relative;
@@ -304,6 +304,13 @@ button {
   color: #fff;
 }
 
+.hero-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
 .hero-copy {
   max-width: 720px;
   padding: 58px 0 28px;
@@ -335,6 +342,27 @@ button {
   color: rgb(203 213 225);
   font-size: 17px;
   line-height: 1.8;
+}
+
+.clock-card {
+  min-width: 260px;
+  padding: 24px 26px;
+  text-align: right;
+}
+
+.clock-time {
+  color: #fff;
+  font-size: clamp(48px, 7vw, 82px);
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.clock-date {
+  margin-top: 12px;
+  color: rgb(203 213 225);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .search-box {
@@ -628,6 +656,14 @@ button {
   color: rgb(71 85 105);
 }
 
+.home-layout[data-theme="light"] .clock-time {
+  color: rgb(15 23 42);
+}
+
+.home-layout[data-theme="light"] .clock-date {
+  color: rgb(71 85 105);
+}
+
 .home-layout[data-theme="light"] .hero-badge {
   background: rgb(8 145 178 / 0.1);
   color: rgb(14 116 144);
@@ -686,8 +722,20 @@ button {
     padding: 18px;
   }
 
+  .hero-body {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
   .hero-copy {
-    padding: 42px 0 22px;
+    padding: 42px 0 4px;
+  }
+
+  .clock-card {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
   }
 
   .search-box {
