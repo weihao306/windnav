@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   color: #17212b;
   background: #f6f8fb;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -43,8 +44,8 @@ button {
   display: grid;
   grid-template-columns: 252px minmax(0, 1fr);
   background:
-    radial-gradient(circle at 24% 0%, rgb(37 99 235 / 0.18), transparent 32rem),
-    linear-gradient(135deg, #161b2b 0%, #252b3a 42%, #eef2f7 42.1%, #f5f7fb 100%);
+    radial-gradient(circle at 24% 0%, rgb(34 211 238 / 0.2), transparent 30rem),
+    linear-gradient(135deg, #e0f2fe 0%, #f8fafc 42%, #eef2f7 42.1%, #f8fafc 100%);
   transition: grid-template-columns 0.25s ease;
 }
 
@@ -581,6 +582,7 @@ button {
 }
 
 .home-layout[data-theme="dark"] {
+  color-scheme: dark;
   background:
     radial-gradient(circle at 24% 0%, rgb(37 99 235 / 0.18), transparent 32rem),
     linear-gradient(135deg, #111827 0%, #1e293b 42%, #0f172a 42.1%, #111827 100%);
@@ -624,6 +626,7 @@ button {
 }
 
 .home-layout[data-theme="light"] {
+  color-scheme: light;
   background:
     radial-gradient(circle at 24% 0%, rgb(34 211 238 / 0.2), transparent 30rem),
     linear-gradient(135deg, #e0f2fe 0%, #f8fafc 42%, #eef2f7 42.1%, #f8fafc 100%);

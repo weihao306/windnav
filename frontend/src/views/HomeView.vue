@@ -7,11 +7,13 @@ import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
 
 const searchText = ref('')
 const activeCategory = ref('all')
-const themeMode = ref<'dark' | 'light'>('dark')
+const themeMode = ref<'dark' | 'light'>('light')
+const systemTheme = ref<'dark' | 'light'>('light')
 const selectedEngineSlug = ref('')
 const sidebarCollapsed = ref(false)
 const currentTime = ref(new Date())
 let clockTimer: number | undefined
+let mediaQuery: MediaQueryList | undefined
 
 const summaryQuery = useQuery({
   queryKey: ['public-summary'],
@@ -55,12 +57,21 @@ const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN',
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
 const searchPlaceholder = computed(() => `搜索站点、标签或描述`)
 
+function syncThemeFromSystem() {
+  systemTheme.value = mediaQuery?.matches ? 'dark' : 'light'
+  themeMode.value = systemTheme.value
+}
+
 watch(searchEngines, (engines) => {
   if (!engines.length || engines.some((engine) => engine.slug === selectedEngineSlug.value)) return
   selectedEngineSlug.value = engines.find((engine) => engine.isDefault)?.slug ?? engines[0].slug
 }, { immediate: true })
 
 onMounted(() => {
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  syncThemeFromSystem()
+  mediaQuery.addEventListener('change', syncThemeFromSystem)
+
   clockTimer = window.setInterval(() => {
     currentTime.value = new Date()
   }, 1000)
@@ -68,10 +79,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (clockTimer) window.clearInterval(clockTimer)
+  mediaQuery?.removeEventListener('change', syncThemeFromSystem)
 })
 
 function toggleTheme() {
-  themeMode.value = isDarkMode.value ? 'light' : 'dark'
+  systemTheme.value = isDarkMode.value ? 'light' : 'dark'
+  themeMode.value = systemTheme.value
 }
 
 function submitSearch() {
@@ -142,7 +155,7 @@ async function openSite(site: Site) {
             {{ summary.site_title ?? 'WindNav' }}
           </div>
           <div class="hero-actions">
-            <button class="theme-toggle" type="button" :aria-label="isDarkMode ? '切换浅色模式' : '切换深色模式'" @click="toggleTheme">
+            <button class="theme-toggle" type="button" :aria-label="isDarkMode ? '当前跟随深色模式' : '当前跟随浅色模式'" @click="toggleTheme">
               <Sun v-if="isDarkMode" class="h-4 w-4" />
               <Moon v-else class="h-4 w-4" />
             </button>
@@ -260,9 +273,9 @@ async function openSite(site: Site) {
         </div>
       </section>
 
-      <section v-else class="empty-state">
-        暂无匹配站点
-      </section>
+      <div v-else class="empty-state">
+        没有找到匹配的站点
+      </div>
     </section>
   </main>
 </template>
