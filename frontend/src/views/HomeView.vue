@@ -126,11 +126,11 @@ async function openSite(site: Site) {
       <button
         class="sidebar-link"
         :class="activeCategory === 'all' ? 'sidebar-link-active' : ''"
-        title="常用工具"
+        title="全部"
         @click="activeCategory = 'all'"
       >
-        <span class="sidebar-icon">常</span>
-        <span class="sidebar-text">常用工具</span>
+        <span class="sidebar-icon">全</span>
+        <span class="sidebar-text">全部</span>
         <span class="sidebar-count">{{ sites.length }}</span>
       </button>
       <button

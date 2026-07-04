@@ -50,6 +50,10 @@ func Seed(db *gorm.DB, cfg config.Config) error {
 		return fmt.Errorf("hash admin password: %w", err)
 	}
 
+	if err := db.Where("slug = ?", "common-tools").Delete(&model.Category{}).Error; err != nil {
+		return fmt.Errorf("remove legacy category common-tools: %w", err)
+	}
+
 	var user model.User
 	err = db.Where("username = ?", cfg.AdminUsername).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
