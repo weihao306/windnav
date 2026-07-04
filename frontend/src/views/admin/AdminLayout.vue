@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Folder, Home, LayoutDashboard, LogOut, Search, Settings, Tags } from 'lucide-vue-next'
+import { Folder, LayoutDashboard, LogOut, Search, Settings, Tags } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
