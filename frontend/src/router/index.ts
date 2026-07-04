@@ -15,6 +15,7 @@ const router = createRouter({
         { path: 'sites', name: 'admin-sites', component: () => import('../views/admin/AdminSites.vue') },
         { path: 'categories', name: 'admin-categories', component: () => import('../views/admin/AdminCategories.vue') },
         { path: 'tags', name: 'admin-tags', component: () => import('../views/admin/AdminTags.vue') },
+        { path: 'search-engines', name: 'admin-search-engines', component: () => import('../views/admin/AdminSearchEngines.vue') },
         { path: 'settings', name: 'admin-settings', component: () => import('../views/admin/AdminSettings.vue') },
       ],
     },

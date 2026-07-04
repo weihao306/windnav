@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { ExternalLink, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from 'lucide-vue-next'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from 'lucide-vue-next'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getData, postData } from '../api/client'
-import type { Category, SettingMap, Site } from '../api/types'
+import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
 
 const searchText = ref('')
 const activeCategory = ref('all')
 const themeMode = ref<'dark' | 'light'>('dark')
+const searchMode = ref<'local' | 'web'>('local')
+const selectedEngineSlug = ref('')
 const sidebarCollapsed = ref(false)
 const currentTime = ref(new Date())
 let clockTimer: number | undefined
@@ -24,10 +26,16 @@ const sitesQuery = useQuery({
   queryKey: ['public-sites'],
   queryFn: () => getData<Site[]>('/public/sites', { page_size: 100 }),
 })
+const searchEnginesQuery = useQuery({
+  queryKey: ['public-search-engines'],
+  queryFn: () => getData<SearchEngine[]>('/public/search-engines'),
+})
 
 const summary = computed(() => summaryQuery.data.value ?? {})
 const categories = computed(() => categoriesQuery.data.value ?? [])
 const sites = computed(() => sitesQuery.data.value ?? [])
+const searchEngines = computed(() => searchEnginesQuery.data.value ?? [])
+const selectedEngine = computed(() => searchEngines.value.find((engine) => engine.slug === selectedEngineSlug.value) ?? searchEngines.value.find((engine) => engine.isDefault) ?? searchEngines.value[0])
 const filteredSites = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
   return sites.value.filter((site) => {
@@ -46,6 +54,12 @@ const uncategorizedSites = computed(() => filteredSites.value.filter((site) => !
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
+const searchPlaceholder = computed(() => searchMode.value === 'web' ? `使用 ${selectedEngine.value?.name ?? '网络'} 搜索` : (summary.value.search_placeholder ?? '搜索站点、标签或描述'))
+
+watch(searchEngines, (engines) => {
+  if (!engines.length || engines.some((engine) => engine.slug === selectedEngineSlug.value)) return
+  selectedEngineSlug.value = engines.find((engine) => engine.isDefault)?.slug ?? engines[0].slug
+}, { immediate: true })
 
 onMounted(() => {
   clockTimer = window.setInterval(() => {
@@ -59,6 +73,20 @@ onUnmounted(() => {
 
 function toggleTheme() {
   themeMode.value = isDarkMode.value ? 'light' : 'dark'
+}
+
+function setSearchMode(mode: 'local' | 'web') {
+  searchMode.value = mode
+}
+
+function submitSearch() {
+  const keyword = searchText.value.trim()
+  if (searchMode.value !== 'web' || !keyword || !selectedEngine.value) return
+  const encodedKeyword = encodeURIComponent(keyword)
+  const target = selectedEngine.value.searchUrl.includes('{query}')
+    ? selectedEngine.value.searchUrl.replaceAll('{query}', encodedKeyword)
+    : `${selectedEngine.value.searchUrl}${selectedEngine.value.searchUrl.includes('?') ? '&' : '?'}q=${encodedKeyword}`
+  window.open(target, '_blank', 'noopener,noreferrer')
 }
 
 function toggleSidebar() {
@@ -146,13 +174,23 @@ async function openSite(site: Site) {
           </div>
         </div>
 
-        <label class="search-box">
+        <form class="search-box" @submit.prevent="submitSearch">
           <Search class="pointer-events-none h-5 w-5 text-slate-400" />
           <input
             v-model="searchText"
-            :placeholder="summary.search_placeholder ?? '搜索站点、标签或描述'"
+            :placeholder="searchPlaceholder"
           />
-        </label>
+          <div class="search-divider" />
+          <button type="button" class="search-mode" :class="searchMode === 'local' ? 'search-mode-active' : ''" @click="setSearchMode('local')">本地</button>
+          <button type="button" class="search-mode" :class="searchMode === 'web' ? 'search-mode-active' : ''" @click="setSearchMode('web')">网络</button>
+          <select v-if="searchMode === 'web' && searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
+            <option v-for="engine in searchEngines" :key="engine.id" :value="engine.slug">{{ engine.name }}</option>
+          </select>
+          <button v-if="searchMode === 'web'" class="search-submit" type="submit" :disabled="!searchText.trim() || !selectedEngine">
+            <Globe2 class="h-4 w-4" />
+            搜索
+          </button>
+        </form>
 
         <div class="category-strip xl:hidden">
           <button

@@ -29,6 +29,15 @@ func (s *Server) publicCategories(c *gin.Context) {
 	ok(c, categories, nil)
 }
 
+func (s *Server) publicSearchEngines(c *gin.Context) {
+	var engines []model.SearchEngine
+	if err := s.db.Where("is_visible = ?", true).Order("sort_order asc, id asc").Find(&engines).Error; err != nil {
+		fail(c, http.StatusInternalServerError, "SERVER_ERROR", "读取搜索引擎失败", nil)
+		return
+	}
+	ok(c, engines, nil)
+}
+
 func (s *Server) publicSites(c *gin.Context) {
 	page, pageSize := pagination(c)
 	query := s.db.Model(&model.Site{}).

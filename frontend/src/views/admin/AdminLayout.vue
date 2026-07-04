@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Folder, Home, LayoutDashboard, LogOut, Settings, Tags } from 'lucide-vue-next'
+import { Folder, Home, LayoutDashboard, LogOut, Search, Settings, Tags } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
@@ -25,6 +25,7 @@ function logout() {
           <RouterLink to="/admin/sites" class="admin-link"><Folder class="h-4 w-4" />站点</RouterLink>
           <RouterLink to="/admin/categories" class="admin-link"><Folder class="h-4 w-4" />分类</RouterLink>
           <RouterLink to="/admin/tags" class="admin-link"><Tags class="h-4 w-4" />标签</RouterLink>
+          <RouterLink to="/admin/search-engines" class="admin-link"><Search class="h-4 w-4" />搜索引擎</RouterLink>
           <RouterLink to="/admin/settings" class="admin-link"><Settings class="h-4 w-4" />设置</RouterLink>
         </nav>
         <button class="mt-4 flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-600" @click="logout">

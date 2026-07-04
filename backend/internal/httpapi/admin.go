@@ -40,6 +40,16 @@ type tagInput struct {
 	Color string `json:"color"`
 }
 
+type searchEngineInput struct {
+	Name      string `json:"name" binding:"required"`
+	Slug      string `json:"slug" binding:"required"`
+	SearchURL string `json:"searchUrl" binding:"required"`
+	Icon      string `json:"icon"`
+	SortOrder int    `json:"sortOrder"`
+	IsDefault bool   `json:"isDefault"`
+	IsVisible *bool  `json:"isVisible"`
+}
+
 type settingsInput struct {
 	Settings map[string]string `json:"settings" binding:"required"`
 }
@@ -254,6 +264,79 @@ func (s *Server) deleteTag(c *gin.Context) {
 	ok(c, gin.H{"ok": true}, nil)
 }
 
+func (s *Server) listSearchEngines(c *gin.Context) {
+	var engines []model.SearchEngine
+	if err := s.db.Order("sort_order asc, id asc").Find(&engines).Error; err != nil {
+		fail(c, http.StatusInternalServerError, "SERVER_ERROR", "读取搜索引擎失败", nil)
+		return
+	}
+	ok(c, engines, nil)
+}
+
+func (s *Server) createSearchEngine(c *gin.Context) {
+	var req searchEngineInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数无效", err.Error())
+		return
+	}
+	engine := searchEngineFromInput(req)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if engine.IsDefault {
+			if err := tx.Model(&model.SearchEngine{}).Where("is_default = ?", true).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(&engine).Error
+	}); err != nil {
+		fail(c, http.StatusBadRequest, "CREATE_FAILED", "创建搜索引擎失败", err.Error())
+		return
+	}
+	created(c, engine)
+}
+
+func (s *Server) updateSearchEngine(c *gin.Context) {
+	id, okID := parseID(c)
+	if !okID {
+		return
+	}
+	var req searchEngineInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, http.StatusBadRequest, "VALIDATION_ERROR", "请求参数无效", err.Error())
+		return
+	}
+	var engine model.SearchEngine
+	if !findByID(c, s.db, id, &engine, "搜索引擎不存在") {
+		return
+	}
+	updated := searchEngineFromInput(req)
+	updated.ID = engine.ID
+	updated.CreatedAt = engine.CreatedAt
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if updated.IsDefault {
+			if err := tx.Model(&model.SearchEngine{}).Where("id <> ? AND is_default = ?", updated.ID, true).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Save(&updated).Error
+	}); err != nil {
+		fail(c, http.StatusBadRequest, "UPDATE_FAILED", "更新搜索引擎失败", err.Error())
+		return
+	}
+	ok(c, updated, nil)
+}
+
+func (s *Server) deleteSearchEngine(c *gin.Context) {
+	id, okID := parseID(c)
+	if !okID {
+		return
+	}
+	if err := s.db.Delete(&model.SearchEngine{}, id).Error; err != nil {
+		fail(c, http.StatusBadRequest, "DELETE_FAILED", "删除搜索引擎失败", err.Error())
+		return
+	}
+	ok(c, gin.H{"ok": true}, nil)
+}
+
 func (s *Server) listSettings(c *gin.Context) {
 	settings, err := loadSettings(s.db)
 	if err != nil {
@@ -310,6 +393,22 @@ func siteFromInput(req siteInput) model.Site {
 		SortOrder:    req.SortOrder,
 		IsPinned:     req.IsPinned,
 		IsVisible:    visible,
+	}
+}
+
+func searchEngineFromInput(req searchEngineInput) model.SearchEngine {
+	visible := true
+	if req.IsVisible != nil {
+		visible = *req.IsVisible
+	}
+	return model.SearchEngine{
+		Name:      req.Name,
+		Slug:      req.Slug,
+		SearchURL: req.SearchURL,
+		Icon:      req.Icon,
+		SortOrder: req.SortOrder,
+		IsDefault: req.IsDefault,
+		IsVisible: visible,
 	}
 }
 

@@ -39,6 +39,7 @@ func Migrate(db *gorm.DB) error {
 		&model.Site{},
 		&model.Tag{},
 		&model.Setting{},
+		&model.SearchEngine{},
 		&model.RefreshToken{},
 	)
 }
@@ -81,6 +82,22 @@ func Seed(db *gorm.DB, cfg config.Config) error {
 			}
 		} else if err != nil {
 			return fmt.Errorf("load setting %s: %w", setting.Key, err)
+		}
+	}
+
+	engines := []model.SearchEngine{
+		{Name: "百度", Slug: "baidu", SearchURL: "https://www.baidu.com/s?wd={query}", Icon: "百", SortOrder: 10, IsDefault: true, IsVisible: true},
+		{Name: "Google", Slug: "google", SearchURL: "https://www.google.com/search?q={query}", Icon: "G", SortOrder: 20, IsDefault: false, IsVisible: true},
+	}
+	for _, engine := range engines {
+		var existing model.SearchEngine
+		err := db.Where("slug = ?", engine.Slug).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := db.Create(&engine).Error; err != nil {
+				return fmt.Errorf("create search engine %s: %w", engine.Slug, err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("load search engine %s: %w", engine.Slug, err)
 		}
 	}
 

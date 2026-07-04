@@ -63,6 +63,19 @@ type Setting struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+type SearchEngine struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"size:120;not null" json:"name"`
+	Slug        string    `gorm:"size:120;uniqueIndex;not null" json:"slug"`
+	SearchURL   string    `gorm:"size:1000;not null" json:"searchUrl"`
+	Icon        string    `gorm:"size:120" json:"icon"`
+	SortOrder   int       `gorm:"default:0;index" json:"sortOrder"`
+	IsDefault   bool      `gorm:"default:false;index" json:"isDefault"`
+	IsVisible   bool      `gorm:"default:true;index" json:"isVisible"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
 type RefreshToken struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	UserID    uint       `gorm:"index;not null" json:"userId"`

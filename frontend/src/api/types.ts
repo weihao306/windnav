@@ -50,6 +50,19 @@ export type Site = {
   updatedAt: string
 }
 
+export type SearchEngine = {
+  id: number
+  name: string
+  slug: string
+  searchUrl: string
+  icon: string
+  sortOrder: number
+  isDefault: boolean
+  isVisible: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type User = {
   id: number
   username: string

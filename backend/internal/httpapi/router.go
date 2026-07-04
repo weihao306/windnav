@@ -33,6 +33,7 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	public := api.Group("/public")
 	public.GET("/summary", s.publicSummary)
 	public.GET("/categories", s.publicCategories)
+	public.GET("/search-engines", s.publicSearchEngines)
 	public.GET("/sites", s.publicSites)
 	public.POST("/sites/:id/click", s.recordClick)
 
@@ -54,6 +55,10 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	admin.POST("/tags", s.createTag)
 	admin.PUT("/tags/:id", s.updateTag)
 	admin.DELETE("/tags/:id", s.deleteTag)
+	admin.GET("/search-engines", s.listSearchEngines)
+	admin.POST("/search-engines", s.createSearchEngine)
+	admin.PUT("/search-engines/:id", s.updateSearchEngine)
+	admin.DELETE("/search-engines/:id", s.deleteSearchEngine)
 	admin.GET("/settings", s.listSettings)
 	admin.PUT("/settings", s.updateSettings)
 
