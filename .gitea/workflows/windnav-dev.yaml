@@ -1,0 +1,59 @@
+name: windnav-dev-ci
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  backend-build-and-test:
+    runs-on: [opensuse-basic]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Go toolchain and deps
+        run: |
+          set -e
+          zypper --non-interactive refresh
+          zypper --non-interactive install -y wget git ca-certificates gcc go curl
+
+      - name: Run backend code checks
+        working-directory: backend
+        run: |
+          set -e
+          go env -w GO111MODULE=on
+          go env -w GOPROXY=https://goproxy.cn,direct
+          go vet ./...
+          go test ./...
+          go test -tags=integration ./...
+          go build ./cmd/server
+
+  frontend-build:
+    runs-on: [opensuse-basic]
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js toolchain and deps
+        run: |
+          set -e
+          zypper --non-interactive refresh
+          zypper --non-interactive install -y wget git ca-certificates curl nodejs npm
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          set -e
+          npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          set -e
+          npm run build
