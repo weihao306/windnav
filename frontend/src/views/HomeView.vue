@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from 'lucide-vue-next'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, SearchX, Sparkles, Sun } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getData, postData } from '../api/client'
 import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
 
@@ -12,6 +12,8 @@ const systemTheme = ref<'dark' | 'light'>('light')
 const selectedEngineSlug = ref('')
 const sidebarCollapsed = ref(false)
 const currentTime = ref(new Date())
+const brokenIcons = ref(new Set<string>())
+const searchInputRef = ref<HTMLInputElement | null>(null)
 let clockTimer: number | undefined
 let mediaQuery: MediaQueryList | undefined
 
@@ -75,16 +77,36 @@ onMounted(() => {
   clockTimer = window.setInterval(() => {
     currentTime.value = new Date()
   }, 1000)
+  document.addEventListener('keydown', handleGlobalKeydown)
 })
 
 onUnmounted(() => {
   if (clockTimer) window.clearInterval(clockTimer)
   mediaQuery?.removeEventListener('change', syncThemeFromSystem)
+  document.removeEventListener('keydown', handleGlobalKeydown)
 })
 
 function toggleTheme() {
   systemTheme.value = isDarkMode.value ? 'light' : 'dark'
   themeMode.value = systemTheme.value
+}
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault()
+    searchInputRef.value?.focus()
+    return
+  }
+  if (e.key === '/' && document.activeElement !== searchInputRef.value && !(document.activeElement instanceof HTMLInputElement) && !(document.activeElement instanceof HTMLTextAreaElement) && !(document.activeElement instanceof HTMLSelectElement)) {
+    e.preventDefault()
+    searchInputRef.value?.focus()
+  }
+}
+
+function clearSearch() {
+  searchText.value = ''
+  activeCategory.value = 'all'
+  nextTick(() => searchInputRef.value?.focus())
 }
 
 function submitSearch() {
@@ -104,6 +126,14 @@ function toggleSidebar() {
 async function openSite(site: Site) {
   postData(`/public/sites/${site.id}/click`).catch(() => undefined)
   window.open(site.url, '_blank', 'noopener,noreferrer')
+}
+
+function onImgError(siteId: string) {
+  brokenIcons.value.add(siteId)
+}
+
+function getFallbackIcon(site: Site) {
+  return site.fallbackIcon || site.title.slice(0, 1).toUpperCase()
 }
 </script>
 
@@ -182,11 +212,13 @@ async function openSite(site: Site) {
           </div>
         </div>
 
-        <form class="search-box" @submit.prevent="submitSearch">
+        <form class="search-box" role="search" @submit.prevent="submitSearch">
           <Search class="pointer-events-none h-5 w-5 text-slate-400" />
           <input
+            ref="searchInputRef"
             v-model="searchText"
             :placeholder="searchPlaceholder"
+            aria-label="搜索站点"
           />
           <select v-if="searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
             <option v-for="engine in searchEngines" :key="engine.id" :value="engine.slug">{{ engine.name }}</option>
@@ -203,7 +235,7 @@ async function openSite(site: Site) {
             :class="activeCategory === 'all' ? 'category-pill-active' : ''"
             @click="activeCategory = 'all'"
           >
-            全部
+            全部（{{ sites.length }}）
           </button>
           <button
             v-for="category in categories"
@@ -212,7 +244,7 @@ async function openSite(site: Site) {
             :class="activeCategory === category.slug ? 'category-pill-active' : ''"
             @click="activeCategory = category.slug"
           >
-            {{ category.name }}
+            {{ category.name }}（{{ sites.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug).length }}）
           </button>
         </div>
       </header>
@@ -232,15 +264,22 @@ async function openSite(site: Site) {
               v-for="site in section.sites"
               :key="site.id"
               class="site-card"
+              role="link"
+              tabindex="0"
+              :aria-label="'打开 ' + site.title"
               @click="openSite(site)"
+              @keydown.enter="openSite(site)"
             >
               <div class="site-icon">
-                <img v-if="site.iconUrl" :src="site.iconUrl" alt="" />
-                <span v-else>{{ site.fallbackIcon || site.title.slice(0, 1).toUpperCase() }}</span>
+                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
+                <span v-else>{{ getFallbackIcon(site) }}</span>
               </div>
               <div class="min-w-0 flex-1">
                 <h3>{{ site.title }}</h3>
                 <p>{{ site.description || site.url }}</p>
+                <div v-if="site.tags?.length" class="site-tags">
+                  <span v-for="tag in site.tags" :key="tag.id" class="site-tag" :style="tag.color ? { background: tag.color + '22', color: tag.color, borderColor: tag.color + '44' } : {}">{{ tag.name }}</span>
+                </div>
               </div>
               <ExternalLink class="site-open-icon" />
             </article>
@@ -257,15 +296,22 @@ async function openSite(site: Site) {
               v-for="site in uncategorizedSites"
               :key="site.id"
               class="site-card"
+              role="link"
+              tabindex="0"
+              :aria-label="'打开 ' + site.title"
               @click="openSite(site)"
+              @keydown.enter="openSite(site)"
             >
               <div class="site-icon">
-                <img v-if="site.iconUrl" :src="site.iconUrl" alt="" />
-                <span v-else>{{ site.fallbackIcon || site.title.slice(0, 1).toUpperCase() }}</span>
+                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
+                <span v-else>{{ getFallbackIcon(site) }}</span>
               </div>
               <div class="min-w-0 flex-1">
                 <h3>{{ site.title }}</h3>
                 <p>{{ site.description || site.url }}</p>
+                <div v-if="site.tags?.length" class="site-tags">
+                  <span v-for="tag in site.tags" :key="tag.id" class="site-tag" :style="tag.color ? { background: tag.color + '22', color: tag.color, borderColor: tag.color + '44' } : {}">{{ tag.name }}</span>
+                </div>
               </div>
               <ExternalLink class="site-open-icon" />
             </article>
@@ -274,8 +320,14 @@ async function openSite(site: Site) {
       </section>
 
       <div v-else class="empty-state">
-        没有找到匹配的站点
+        <SearchX class="empty-state-icon" />
+        <p class="empty-state-title">没有找到匹配的站点</p>
+        <p class="empty-state-hint">试试调整搜索关键词，或者</p>
+        <button class="empty-state-clear" type="button" @click="clearSearch">清空搜索条件</button>
       </div>
+      <footer class="home-footer">
+        <p>Powered by <strong>WindNav</strong> · {{ new Date().getFullYear() }}</p>
+      </footer>
     </section>
   </main>
 </template>
