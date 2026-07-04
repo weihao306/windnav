@@ -8,7 +8,6 @@ import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
 const searchText = ref('')
 const activeCategory = ref('all')
 const themeMode = ref<'dark' | 'light'>('dark')
-const searchMode = ref<'local' | 'web'>('local')
 const selectedEngineSlug = ref('')
 const sidebarCollapsed = ref(false)
 const currentTime = ref(new Date())
@@ -54,7 +53,7 @@ const uncategorizedSites = computed(() => filteredSites.value.filter((site) => !
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
-const searchPlaceholder = computed(() => searchMode.value === 'web' ? `使用 ${selectedEngine.value?.name ?? '网络'} 搜索` : (summary.value.search_placeholder ?? '搜索站点、标签或描述'))
+const searchPlaceholder = computed(() => `搜索站点、标签或描述`)
 
 watch(searchEngines, (engines) => {
   if (!engines.length || engines.some((engine) => engine.slug === selectedEngineSlug.value)) return
@@ -75,13 +74,9 @@ function toggleTheme() {
   themeMode.value = isDarkMode.value ? 'light' : 'dark'
 }
 
-function setSearchMode(mode: 'local' | 'web') {
-  searchMode.value = mode
-}
-
 function submitSearch() {
   const keyword = searchText.value.trim()
-  if (searchMode.value !== 'web' || !keyword || !selectedEngine.value) return
+  if (!keyword || !selectedEngine.value) return
   const encodedKeyword = encodeURIComponent(keyword)
   const target = selectedEngine.value.searchUrl.includes('{query}')
     ? selectedEngine.value.searchUrl.replaceAll('{query}', encodedKeyword)
@@ -180,13 +175,10 @@ async function openSite(site: Site) {
             v-model="searchText"
             :placeholder="searchPlaceholder"
           />
-          <div class="search-divider" />
-          <button type="button" class="search-mode" :class="searchMode === 'local' ? 'search-mode-active' : ''" @click="setSearchMode('local')">本地</button>
-          <button type="button" class="search-mode" :class="searchMode === 'web' ? 'search-mode-active' : ''" @click="setSearchMode('web')">网络</button>
-          <select v-if="searchMode === 'web' && searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
+          <select v-if="searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
             <option v-for="engine in searchEngines" :key="engine.id" :value="engine.slug">{{ engine.name }}</option>
           </select>
-          <button v-if="searchMode === 'web'" class="search-submit" type="submit" :disabled="!searchText.trim() || !selectedEngine">
+          <button class="search-submit" type="submit" :disabled="!searchText.trim() || !selectedEngine">
             <Globe2 class="h-4 w-4" />
             搜索
           </button>
