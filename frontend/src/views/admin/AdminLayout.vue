@@ -16,19 +16,19 @@ function logout() {
   <main class="min-h-screen bg-[#f6f8fb] text-slate-900">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-5 lg:flex-row">
       <aside class="rounded-[8px] border border-slate-200 bg-white p-3 lg:sticky lg:top-5 lg:h-[calc(100vh-40px)] lg:w-60">
-        <RouterLink to="/" class="mb-4 flex items-center gap-2 rounded-[8px] px-3 py-2 font-semibold text-slate-950">
+        <RouterLink to="/" class="mb-4 flex items-center justify-start gap-2 rounded-[8px] px-3 py-2 font-semibold text-slate-950">
           <Home class="h-5 w-5 text-cyan-600" />
           WindNav
         </RouterLink>
         <nav class="grid gap-1">
-          <RouterLink to="/admin" class="admin-link"><LayoutDashboard class="h-4 w-4" />概览</RouterLink>
-          <RouterLink to="/admin/sites" class="admin-link"><Folder class="h-4 w-4" />站点</RouterLink>
-          <RouterLink to="/admin/categories" class="admin-link"><Folder class="h-4 w-4" />分类</RouterLink>
-          <RouterLink to="/admin/tags" class="admin-link"><Tags class="h-4 w-4" />标签</RouterLink>
-          <RouterLink to="/admin/search-engines" class="admin-link"><Search class="h-4 w-4" />搜索引擎</RouterLink>
-          <RouterLink to="/admin/settings" class="admin-link"><Settings class="h-4 w-4" />设置</RouterLink>
+          <RouterLink to="/admin" class="admin-link"><LayoutDashboard class="h-4 w-4" /><span>概览</span></RouterLink>
+          <RouterLink to="/admin/sites" class="admin-link"><Folder class="h-4 w-4" /><span>站点</span></RouterLink>
+          <RouterLink to="/admin/categories" class="admin-link"><Folder class="h-4 w-4" /><span>分类</span></RouterLink>
+          <RouterLink to="/admin/tags" class="admin-link"><Tags class="h-4 w-4" /><span>标签</span></RouterLink>
+          <RouterLink to="/admin/search-engines" class="admin-link"><Search class="h-4 w-4" /><span>搜索引擎</span></RouterLink>
+          <RouterLink to="/admin/settings" class="admin-link"><Settings class="h-4 w-4" /><span>设置</span></RouterLink>
         </nav>
-        <button class="mt-4 flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-600" @click="logout">
+        <button class="mt-4 flex w-full items-center justify-start gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-600" @click="logout">
           <LogOut class="h-4 w-4" />
           退出
         </button>
@@ -44,6 +44,7 @@ function logout() {
 .admin-link {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   border-radius: 8px;
   padding: 0.625rem 0.75rem;
@@ -55,5 +56,8 @@ function logout() {
 .admin-link.router-link-exact-active {
   background: rgb(236 254 255);
   color: rgb(14 116 144);
+}
+.admin-link span {
+  min-width: 0;
 }
 </style>
