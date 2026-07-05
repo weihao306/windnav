@@ -1,5 +1,4 @@
 FROM golang:1.26-alpine AS backend-builder
-
 WORKDIR /app/backend
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add --no-cache build-base
@@ -10,7 +9,6 @@ COPY backend/ ./
 RUN CGO_ENABLED=1 go build -o /out/windnav ./cmd/server
 
 FROM node:24-alpine AS frontend-builder
-
 WORKDIR /app/frontend
 RUN npm config set registry https://registry.npmmirror.com
 COPY frontend/package*.json ./
@@ -18,8 +16,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM alpine:3.24
-
+FROM alpine:3.24 AS runner
 WORKDIR /app
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add --no-cache ca-certificates tzdata
