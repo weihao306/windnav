@@ -38,9 +38,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: actions/setup-buildx-action@v3
         with: 
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["https://docker.1ms.run"]
+          driver: docker
+          # buildkitd-config-inline: |
+          #   [registry."docker.io"]
+          #     mirrors = ["https://docker.1ms.run"]
 
       - name: Set up Docker metadata
         id: meta
@@ -120,6 +121,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: actions/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Set up Docker metadata
         id: meta
