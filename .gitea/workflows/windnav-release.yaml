@@ -35,60 +35,80 @@ jobs:
           zypper --non-interactive refresh
           zypper --non-interactive install -y docker
 
-      - name: Set up Docker Buildx
-        uses: actions/setup-buildx-action@v3
-        with: 
-          driver: docker
-          # buildkitd-config-inline: |
-          #   [registry."docker.io"]
-          #     mirrors = ["https://docker.1ms.run"]
-
-      - name: Set up Docker metadata
+      - name: Compute image tags & labels
         id: meta
-        uses: actions/metadata-action@v5
-        with:
-          images: |
-            ${{ vars.REGISTRY_IMAGE }}
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+        run: |
+          set -e
+          # 解析 tag: v1.2.3 → version=1.2.3, major=1, minor=2
+          RAW_TAG="${{ github.ref_name }}"
+          VERSION="${RAW_TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          REST="${VERSION#*.}"
+          MINOR="${REST%%.*}"
+
+          IMAGE="${{ vars.REGISTRY_IMAGE }}"
+
+          # 生成标签 (含 arch 后缀避免多架构冲突)
+          echo "tags=${IMAGE}:${VERSION}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          # 生成 OCI 标签
+          LABELS="org.opencontainers.image.version=${VERSION}"
+          LABELS="${LABELS},org.opencontainers.image.revision=${{ github.sha }}"
+          LABELS="${LABELS},org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "labels=${LABELS}" >> "$GITHUB_OUTPUT"
+
+          echo "Image:  ${IMAGE}"
+          echo "Tag:    ${IMAGE}:${VERSION}-${{ matrix.arch }}"
 
       - name: Log in to registry
-        uses: actions/login-action@v3
-        with:
-          registry: ${{ vars.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" \
+            | docker login "${{ vars.REGISTRY_HOST }}" \
+                -u "${{ secrets.REGISTRY_USERNAME }}" \
+                --password-stdin
 
       - name: Build and push
         id: build
-        uses: actions/build-push-action@v6
-        with:
-          context: .
-          file: deploy/Dockerfile
-          platforms: ${{ matrix.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: false
-          pull: false
-          outputs: type=image,name=${{ vars.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+        run: |
+          set -e
+
+          # 将逗号分隔的 labels 转为多个 --label 参数
+          IFS=',' read -ra LABEL_ARR <<< "${{ steps.meta.outputs.labels }}"
+          LABEL_FLAGS=()
+          for lbl in "${LABEL_ARR[@]}"; do
+            LABEL_FLAGS+=("--label" "$lbl")
+          done
+
+          docker buildx build \
+            -t "${{ steps.meta.outputs.tags }}" \
+            --platform "${{ matrix.platform }}" \
+            --file deploy/Dockerfile \
+            "${LABEL_FLAGS[@]}" \
+            --provenance=false \
+            --push \
+            .
+
+          # 从本地镜像仓库中提取推送后的 digest
+          DIGEST=$(docker image inspect "${{ steps.meta.outputs.tags }}" \
+            --format='{{index .RepoDigests 0}}' \
+            | sed 's/.*@//')
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Resolved digest: ${DIGEST}"
 
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
-          echo "Resolved digest: $digest"
           if [ -z "$digest" ]; then
             echo "::error::Digest output is empty, cannot upload."
             exit 1
           fi
-          # 去掉 sha256: 前缀，用哈希值作为文件名
           touch "/tmp/digests/${digest#sha256:}"
           ls -la /tmp/digests/
 
       - name: Upload digest
-        uses: actions/upload-artifact@v3   
+        uses: actions/upload-artifact@v3
         with:
           name: digests-${{ matrix.arch }}
           path: /tmp/digests/*
@@ -112,27 +132,35 @@ jobs:
           zypper --non-interactive refresh
           zypper --non-interactive install -y docker
 
-      - name: Log in to registry
-        uses: actions/login-action@v3
-        with:
-          registry: ${{ vars.REGISTRY_HOST }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: actions/setup-buildx-action@v3
-        with:
-          driver: docker
-
-      - name: Set up Docker metadata
+      - name: Compute release tags
         id: meta
-        uses: actions/metadata-action@v5
-        with:
-          images: ${{ vars.REGISTRY_IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+        run: |
+          set -e
+          RAW_TAG="${{ github.ref_name }}"
+          VERSION="${RAW_TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          REST="${VERSION#*.}"
+          MINOR="${REST%%.*}"
+
+          IMAGE="${{ vars.REGISTRY_IMAGE }}"
+
+          # 按行输出所有标签（供后续循环读取）
+          printf '%s\n' \
+            "${IMAGE}:${VERSION}" \
+            "${IMAGE}:${MAJOR}.${MINOR}" \
+            "${IMAGE}:${MAJOR}" \
+            "${IMAGE}:latest" \
+            > /tmp/release-tags.txt
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          cat /tmp/release-tags.txt
+
+      - name: Log in to registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" \
+            | docker login "${{ vars.REGISTRY_HOST }}" \
+                -u "${{ secrets.REGISTRY_USERNAME }}" \
+                --password-stdin
 
       - name: Download digests
         uses: actions/download-artifact@v3
@@ -144,15 +172,21 @@ jobs:
       - name: Create manifest list and push
         run: |
           set -e
-          tag_args=()
-          while IFS= read -r t; do
-            tag_args+=("-t" "$t")
-          done <<< "${{ steps.meta.outputs.tags }}"
-          sources=()
+          IMAGE="${{ vars.REGISTRY_IMAGE }}"
+
+          # 收集各架构的 digest 引用
+          SOURCES=()
           for f in /tmp/digests/*; do
-            sources+=("${{ vars.REGISTRY_IMAGE }}@sha256:$(basename "$f")")
+            SOURCES+=("${IMAGE}@sha256:$(basename "$f")")
           done
-          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+          echo "Sources: ${SOURCES[*]}"
+
+          # 为每个标签创建并推送多架构 manifest
+          while IFS= read -r TAG; do
+            [ -z "$TAG" ] && continue
+            echo "Creating manifest: ${TAG}"
+            docker buildx imagetools create -t "${TAG}" "${SOURCES[@]}"
+          done < /tmp/release-tags.txt
 
       - name: Inspect image
         run: |
