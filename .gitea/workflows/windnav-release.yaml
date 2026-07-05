@@ -35,31 +35,23 @@ jobs:
           zypper --non-interactive refresh
           zypper --non-interactive install -y docker
 
-      - name: Compute image tags & labels
+      - name: Compute image metadata
         id: meta
         run: |
           set -e
-          # 解析 tag: v1.2.3 → version=1.2.3, major=1, minor=2
-          RAW_TAG="${{ github.ref_name }}"
-          VERSION="${RAW_TAG#v}"
-          MAJOR="${VERSION%%.*}"
-          REST="${VERSION#*.}"
-          MINOR="${REST%%.*}"
+          # 解析 semver: v1.2.3 → 1.2.3 / 1.2 / 1
+          VERSION="${GITHUB_REF_NAME#v}"
+          IFS='.' read -r MAJOR MINOR _ <<< "$VERSION"
+          # 兜底：纯数字 tag (如 v1) 时 MINOR/PATCH 为空
+          MINOR="${MINOR:-0}"
 
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
+          TAG="${IMAGE}:${VERSION}-${{ matrix.arch }}"
 
-          # 生成标签 (含 arch 后缀避免多架构冲突)
-          echo "tags=${IMAGE}:${VERSION}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"   >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-          # 生成 OCI 标签
-          LABELS="org.opencontainers.image.version=${VERSION}"
-          LABELS="${LABELS},org.opencontainers.image.revision=${{ github.sha }}"
-          LABELS="${LABELS},org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          echo "labels=${LABELS}" >> "$GITHUB_OUTPUT"
-
           echo "Image:  ${IMAGE}"
-          echo "Tag:    ${IMAGE}:${VERSION}-${{ matrix.arch }}"
+          echo "Tag:    ${TAG}"
 
       - name: Log in to registry
         run: |
@@ -68,43 +60,32 @@ jobs:
                 -u "${{ secrets.REGISTRY_USERNAME }}" \
                 --password-stdin
 
-      - name: Build and push
+      - name: Build, push & export digest
         id: build
         run: |
           set -e
-
-          # 将逗号分隔的 labels 转为多个 --label 参数
-          IFS=',' read -ra LABEL_ARR <<< "${{ steps.meta.outputs.labels }}"
-          LABEL_FLAGS=()
-          for lbl in "${LABEL_ARR[@]}"; do
-            LABEL_FLAGS+=("--label" "$lbl")
-          done
+          METADATA_FILE=$(mktemp)
 
           docker buildx build \
-            -t "${{ steps.meta.outputs.tags }}" \
+            -t "${{ steps.meta.outputs.tag }}" \
             --platform "${{ matrix.platform }}" \
             --file deploy/Dockerfile \
-            "${LABEL_FLAGS[@]}" \
+            --label "org.opencontainers.image.version=${{ steps.meta.outputs.version }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --provenance=false \
+            --metadata-file "$METADATA_FILE" \
             --push \
             .
 
-          # 从本地镜像仓库中提取推送后的 digest
-          DIGEST=$(docker image inspect "${{ steps.meta.outputs.tags }}" \
-            --format='{{index .RepoDigests 0}}' \
-            | sed 's/.*@//')
+          # 从 metadata 文件提取 digest
+          DIGEST=$(jq -r '.["containerimage.digest"]' "$METADATA_FILE")
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
           echo "Resolved digest: ${DIGEST}"
 
-      - name: Export digest
-        run: |
+          # 写入 artifact 目录
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          if [ -z "$digest" ]; then
-            echo "::error::Digest output is empty, cannot upload."
-            exit 1
-          fi
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
           ls -la /tmp/digests/
 
       - name: Upload digest
@@ -123,9 +104,6 @@ jobs:
       volumes:
         - /run/docker.sock:/var/run/docker.sock
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
           set -e
@@ -136,15 +114,12 @@ jobs:
         id: meta
         run: |
           set -e
-          RAW_TAG="${{ github.ref_name }}"
-          VERSION="${RAW_TAG#v}"
-          MAJOR="${VERSION%%.*}"
-          REST="${VERSION#*.}"
-          MINOR="${REST%%.*}"
+          VERSION="${GITHUB_REF_NAME#v}"
+          IFS='.' read -r MAJOR MINOR _ <<< "$VERSION"
+          MINOR="${MINOR:-0}"
 
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
 
-          # 按行输出所有标签（供后续循环读取）
           printf '%s\n' \
             "${IMAGE}:${VERSION}" \
             "${IMAGE}:${MAJOR}.${MINOR}" \
@@ -174,14 +149,12 @@ jobs:
           set -e
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
 
-          # 收集各架构的 digest 引用
           SOURCES=()
           for f in /tmp/digests/*; do
             SOURCES+=("${IMAGE}@sha256:$(basename "$f")")
           done
-          echo "Sources: ${SOURCES[*]}"
+          echo "Sources (${#SOURCES[@]}): ${SOURCES[*]}"
 
-          # 为每个标签创建并推送多架构 manifest
           while IFS= read -r TAG; do
             [ -z "$TAG" ] && continue
             echo "Creating manifest: ${TAG}"

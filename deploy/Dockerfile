@@ -1,6 +1,6 @@
 FROM golang:1.26-alpine AS backend-builder
 WORKDIR /app/backend
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     apk add --no-cache build-base
 COPY backend/go.mod backend/go.sum ./
 ENV GOPROXY=https://goproxy.cn,direct
@@ -18,7 +18,7 @@ RUN npm run build
 
 FROM alpine:3.24 AS runner
 WORKDIR /app
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     apk add --no-cache ca-certificates tzdata
 COPY --from=backend-builder /out/windnav /app/windnav
 COPY --from=frontend-builder /app/frontend/dist /app/public
