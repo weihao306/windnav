@@ -12,10 +12,20 @@ permissions:
 jobs:
   build-and-push-image:
     runs-on: [opensuse-basic]
+    container:
+      image: opensuse/tumbleweed:basic
+      volumes:
+        - /run/docker.sock:/var/run/docker.sock
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          set -e
+          zypper --non-interactive refresh
+          zypper --non-interactive install -y docker
 
       - name: Set up QEMU
         uses: actions/setup-qemu-action@v3
