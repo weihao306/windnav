@@ -10,7 +10,6 @@ RUN CGO_ENABLED=1 go build -o /out/windnav ./cmd/server
 
 FROM node:24-alpine AS frontend-builder
 WORKDIR /app/frontend
-RUN npm config set registry https://registry.npmmirror.com
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./

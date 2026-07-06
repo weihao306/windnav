@@ -60,11 +60,10 @@ jobs:
                 -u "${{ secrets.REGISTRY_USERNAME }}" \
                 --password-stdin
 
-      - name: Build, push & export digest
+      - name: Build and push image
         id: build
         run: |
           set -e
-          METADATA_FILE=$(mktemp)
 
           docker buildx build \
             -t "${{ steps.meta.outputs.tag }}" \
@@ -74,27 +73,16 @@ jobs:
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --provenance=false \
-            --metadata-file "$METADATA_FILE" \
             --push \
             .
 
-          # 从 metadata 文件提取 digest
-          DIGEST=$(jq -r '.["containerimage.digest"]' "$METADATA_FILE")
-          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "Resolved digest: ${DIGEST}"
+          echo "Pushed: ${{ steps.meta.outputs.tag }}"
 
-          # 写入 artifact 目录
-          mkdir -p /tmp/digests
-          touch "/tmp/digests/${DIGEST#sha256:}"
-          ls -la /tmp/digests/
-
-      - name: Upload digest
-        uses: actions/upload-artifact@v3
-        with:
-          name: digests-${{ matrix.arch }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
+      - name: Clean up local image
+        if: always()
+        run: |
+          docker rmi "${{ steps.meta.outputs.tag }}" || true
+          docker builder prune --force || true
 
   merge:
     needs: build
@@ -137,21 +125,21 @@ jobs:
                 -u "${{ secrets.REGISTRY_USERNAME }}" \
                 --password-stdin
 
-      - name: Download digests
-        uses: actions/download-artifact@v3
-        with:
-          path: /tmp/digests
-          pattern: digests-*
-          merge-multiple: true
-
       - name: Create manifest list and push
         run: |
           set -e
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
+          VERSION="${{ steps.meta.outputs.version }}"
 
+          # 通过 inspect 已推送的架构镜像获取 digest
+          ARCHS=("x86_64" "aarch64")
           SOURCES=()
-          for f in /tmp/digests/*; do
-            SOURCES+=("${IMAGE}@sha256:$(basename "$f")")
+          for ARCH in "${ARCHS[@]}"; do
+            ARCH_TAG="${IMAGE}:${VERSION}-${ARCH}"
+            echo "Inspecting: ${ARCH_TAG}"
+            DIGEST=$(docker buildx imagetools inspect "${ARCH_TAG}" | grep '^Digest:' | awk '{print $2}')
+            echo "  Digest: ${DIGEST}"
+            SOURCES+=("${IMAGE}@${DIGEST}")
           done
           echo "Sources (${#SOURCES[@]}): ${SOURCES[*]}"
 
