@@ -29,26 +29,15 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          set -e
-          zypper --non-interactive refresh
-          zypper --non-interactive install -y docker
-
       - name: Compute image metadata
         id: meta
         run: |
           set -e
-          # 解析 semver: v1.2.3 → 1.2.3 / 1.2 / 1
           VERSION="${GITHUB_REF_NAME#v}"
-          IFS='.' read -r MAJOR MINOR _ <<< "$VERSION"
-          # 兜底：纯数字 tag (如 v1) 时 MINOR/PATCH 为空
-          MINOR="${MINOR:-0}"
-
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
           TAG="${IMAGE}:${VERSION}-${{ matrix.arch }}"
 
-          echo "tag=${TAG}"   >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"       >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Image:  ${IMAGE}"
           echo "Tag:    ${TAG}"
@@ -92,26 +81,15 @@ jobs:
       volumes:
         - /run/docker.sock:/var/run/docker.sock
     steps:
-      - name: Install dependencies
-        run: |
-          set -e
-          zypper --non-interactive refresh
-          zypper --non-interactive install -y docker
-
       - name: Compute release tags
         id: meta
         run: |
           set -e
           VERSION="${GITHUB_REF_NAME#v}"
-          IFS='.' read -r MAJOR MINOR _ <<< "$VERSION"
-          MINOR="${MINOR:-0}"
-
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
 
           printf '%s\n' \
             "${IMAGE}:${VERSION}" \
-            "${IMAGE}:${MAJOR}.${MINOR}" \
-            "${IMAGE}:${MAJOR}" \
             "${IMAGE}:latest" \
             > /tmp/release-tags.txt
 
@@ -130,16 +108,19 @@ jobs:
           set -e
           IMAGE="${{ vars.REGISTRY_IMAGE }}"
           VERSION="${{ steps.meta.outputs.version }}"
+          REGISTRY_HOST="${{ vars.REGISTRY_HOST }}"
 
           # 通过 inspect 已推送的架构镜像获取 digest
           ARCHS=("x86_64" "aarch64")
           SOURCES=()
+          declare -A ARCH_DIGESTS
           for ARCH in "${ARCHS[@]}"; do
             ARCH_TAG="${IMAGE}:${VERSION}-${ARCH}"
             echo "Inspecting: ${ARCH_TAG}"
             DIGEST=$(docker buildx imagetools inspect "${ARCH_TAG}" | grep '^Digest:' | awk '{print $2}')
             echo "  Digest: ${DIGEST}"
             SOURCES+=("${IMAGE}@${DIGEST}")
+            ARCH_DIGESTS["${ARCH}"]="${DIGEST}"
           done
           echo "Sources (${#SOURCES[@]}): ${SOURCES[*]}"
 
@@ -148,6 +129,16 @@ jobs:
             echo "Creating manifest: ${TAG}"
             docker buildx imagetools create -t "${TAG}" "${SOURCES[@]}"
           done < /tmp/release-tags.txt
+
+          # 删除架构特定标签（已合并到多架构 manifest 中，不再需要）
+          REPO="${IMAGE#*/}"
+          for ARCH in "${ARCHS[@]}"; do
+            DIGEST="${ARCH_DIGESTS[${ARCH}]}"
+            echo "Deleting arch tag: ${IMAGE}:${VERSION}-${ARCH} (${DIGEST})"
+            curl -fsS -u "${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }}" \
+              -X DELETE \
+              "https://${REGISTRY_HOST}/v2/${REPO}/manifests/${DIGEST}" || true
+          done
 
       - name: Inspect image
         run: |
