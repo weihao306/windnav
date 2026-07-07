@@ -129,17 +129,7 @@ jobs:
             echo "Creating manifest: ${TAG}"
             docker buildx imagetools create -t "${TAG}" "${SOURCES[@]}"
           done < /tmp/release-tags.txt
-
-          # 删除架构特定标签（已合并到多架构 manifest 中，不再需要）
-          REPO="${IMAGE#*/}"
-          for ARCH in "${ARCHS[@]}"; do
-            DIGEST="${ARCH_DIGESTS[${ARCH}]}"
-            echo "Deleting arch tag: ${IMAGE}:${VERSION}-${ARCH} (${DIGEST})"
-            curl -fsS -u "${{ secrets.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }}" \
-              -X DELETE \
-              "https://${REGISTRY_HOST}/v2/${REPO}/manifests/${DIGEST}" || true
-          done
-
+          
       - name: Inspect image
         run: |
           docker buildx imagetools inspect "${{ vars.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}"
