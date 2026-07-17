@@ -594,6 +594,31 @@ img {
   box-shadow: var(--panel-shadow);
 }
 
+.hero-shell-focused {
+  padding-bottom: 22px;
+}
+
+.hero-shell-focused .hero-main {
+  grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.6fr);
+  gap: 20px;
+}
+
+.hero-shell-focused .hero-copy h1 {
+  font-size: clamp(2.8rem, 5.4vw, 4.6rem);
+}
+
+.hero-shell-focused .hero-copy p {
+  max-width: 38rem;
+}
+
+.hero-shell-focused .hero-stats {
+  margin-top: 20px;
+}
+
+.hero-shell-focused .clock-card {
+  min-height: 156px;
+}
+
 .hero-main {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
@@ -938,6 +963,23 @@ img {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.section-heading-focused {
+  margin-bottom: 16px;
+}
+
+.section-heading-focused .section-kicker {
+  margin-bottom: 8px;
+}
+
+.section-heading-focused .section-title {
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+}
+
+.section-heading-focused .section-description {
+  max-width: 34rem;
+  font-size: 0.88rem;
 }
 
 .section-heading span {

@@ -84,17 +84,31 @@ const sectionBlocks = computed<HomeSection[]>(() => {
   return sections
 })
 const featuredSites = computed(() => {
+  if (activeCategory.value !== 'all') return []
   const pinned = filteredSites.value.filter((site) => site.isPinned)
   return (pinned.length ? pinned : filteredSites.value).slice(0, 3)
+})
+const activeCategoryMeta = computed(() => {
+  if (activeCategory.value === 'all') {
+    return {
+      name: '全部站点',
+      description: summary.value.site_subtitle ?? '轻盈、沉浸、精致的自建导航起始页。',
+      caption: 'ALL CATEGORIES',
+    }
+  }
+
+  const matchedCategory = categories.value.find((category) => category.slug === activeCategory.value || String(category.id) === activeCategory.value)
+
+  return {
+    name: matchedCategory?.name ?? '全部站点',
+    description: matchedCategory?.description || '当前分类下的站点已为你聚合展示。',
+    caption: matchedCategory?.slug?.toUpperCase() ?? 'CATEGORY',
+  }
 })
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
 const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
-const activeCategoryLabel = computed(() => {
-  if (activeCategory.value === 'all') return '全部站点'
-  return categories.value.find((category) => category.slug === activeCategory.value || String(category.id) === activeCategory.value)?.name ?? '全部站点'
-})
 const totalSiteCount = computed(() => sites.value.length)
 const filteredSiteCount = computed(() => filteredSites.value.length)
 const pinnedSiteCount = computed(() => sites.value.filter((site) => site.isPinned).length)
@@ -253,7 +267,6 @@ function getTagStyle(color?: string) {
 
       <div class="sidebar-section-header">
         <span>导航分类</span>
-        <small>{{ activeCategoryLabel }}</small>
       </div>
 
       <button
@@ -306,15 +319,15 @@ function getTagStyle(color?: string) {
         </div>
       </header>
 
-      <section class="hero-shell glass-surface">
+      <section class="hero-shell glass-surface" :class="{ 'hero-shell-focused': activeCategory !== 'all' }">
         <div class="hero-main">
           <div class="hero-copy">
             <div class="hero-badge">
               <Sparkles class="h-4 w-4" />
-              WindNav Glass Portal
+              {{ activeCategory === 'all' ? 'WindNav Glass Portal' : 'Category Focus' }}
             </div>
-            <h1>{{ summary.site_title ?? 'WindNav' }}</h1>
-            <p>{{ summary.site_subtitle ?? '轻盈、沉浸、精致的自建导航起始页。' }}</p>
+            <h1>{{ activeCategory === 'all' ? (summary.site_title ?? 'WindNav') : activeCategoryMeta.name }}</h1>
+            <p>{{ activeCategoryMeta.description }}</p>
 
             <div class="hero-stats">
               <div class="hero-stat glass-chip">
@@ -324,10 +337,6 @@ function getTagStyle(color?: string) {
               <div class="hero-stat glass-chip">
                 <span>搜索引擎</span>
                 <strong>{{ currentEngineName }}</strong>
-              </div>
-              <div class="hero-stat glass-chip">
-                <span>当前分类</span>
-                <strong>{{ activeCategoryLabel }}</strong>
               </div>
             </div>
           </div>
@@ -418,7 +427,7 @@ function getTagStyle(color?: string) {
       </section>
 
       <section v-else-if="filteredSites.length" class="content-stack">
-        <div v-if="featuredSites.length" class="featured-strip glass-surface">
+        <div v-if="activeCategory === 'all' && featuredSites.length" class="featured-strip glass-surface">
           <div class="section-heading compact-heading">
             <div>
               <p class="section-kicker">FEATURED</p>
@@ -450,11 +459,19 @@ function getTagStyle(color?: string) {
         </div>
 
         <div v-for="section in sectionBlocks" :key="section.key" class="site-section glass-surface">
-          <div class="section-heading">
+          <div v-if="activeCategory === 'all'" class="section-heading">
             <div>
               <p class="section-kicker">{{ section.caption }}</p>
               <h2 class="section-title">{{ section.name }}</h2>
               <p class="section-description">{{ section.description }}</p>
+            </div>
+            <span>{{ section.sites.length }} 个站点</span>
+          </div>
+          <div v-else class="section-heading section-heading-focused">
+            <div>
+              <p class="section-kicker">FILTERED</p>
+              <h2 class="section-title">已筛选站点</h2>
+              <p class="section-description">当前分类下的站点已聚合展示，减少重复标题干扰。</p>
             </div>
             <span>{{ section.sites.length }} 个站点</span>
           </div>
