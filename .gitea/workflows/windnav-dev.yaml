@@ -1,4 +1,4 @@
-name: windnav-dev-ci
+name: windnav-dev
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
           go vet ./...
           go test ./...
           go test -tags=integration ./...
-          go build ./cmd/server
+          go build -mod=vendor ./cmd/server
 
   frontend-build:
     strategy:
