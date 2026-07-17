@@ -5,6 +5,14 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getData, postData } from '../api/client'
 import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
 
+type HomeSection = {
+  key: string
+  name: string
+  description: string
+  caption: string
+  sites: Site[]
+}
+
 const searchText = ref('')
 const activeCategory = ref('all')
 const themeMode = ref<'dark' | 'light'>('light')
@@ -47,17 +55,50 @@ const filteredSites = computed(() => {
     return categoryMatched && (!keyword || text.includes(keyword))
   })
 })
-const groupedSections = computed(() => categories.value
-  .map((category) => ({
-    category,
-    sites: filteredSites.value.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug),
-  }))
-  .filter((section) => section.sites.length > 0))
 const uncategorizedSites = computed(() => filteredSites.value.filter((site) => !site.categoryId && !site.category?.slug))
+const categoriesWithCounts = computed(() => categories.value.map((category) => ({
+  ...category,
+  count: sites.value.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug).length,
+})))
+const sectionBlocks = computed<HomeSection[]>(() => {
+  const sections = categories.value
+    .map((category) => ({
+      key: category.slug || String(category.id),
+      name: category.name,
+      description: category.description || '为这组常用站点提供更聚焦的入口体验。',
+      caption: category.slug || `CAT-${category.id}`,
+      sites: filteredSites.value.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug),
+    }))
+    .filter((section) => section.sites.length > 0)
+
+  if (activeCategory.value === 'all' && uncategorizedSites.value.length) {
+    sections.push({
+      key: 'uncategorized',
+      name: '其他',
+      description: '暂未归类但依旧值得保留的灵感与工具入口。',
+      caption: 'UNSORTED',
+      sites: uncategorizedSites.value,
+    })
+  }
+
+  return sections
+})
+const featuredSites = computed(() => {
+  const pinned = filteredSites.value.filter((site) => site.isPinned)
+  return (pinned.length ? pinned : filteredSites.value).slice(0, 3)
+})
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
-const searchPlaceholder = computed(() => `搜索站点、标签或描述`)
+const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
+const activeCategoryLabel = computed(() => {
+  if (activeCategory.value === 'all') return '全部站点'
+  return categories.value.find((category) => category.slug === activeCategory.value || String(category.id) === activeCategory.value)?.name ?? '全部站点'
+})
+const totalSiteCount = computed(() => sites.value.length)
+const filteredSiteCount = computed(() => filteredSites.value.length)
+const pinnedSiteCount = computed(() => sites.value.filter((site) => site.isPinned).length)
+const currentEngineName = computed(() => selectedEngine.value?.name ?? '未设置')
 
 function syncThemeFromSystem() {
   systemTheme.value = mediaQuery?.matches ? 'dark' : 'light'
@@ -97,6 +138,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     searchInputRef.value?.focus()
     return
   }
+
   if (e.key === '/' && document.activeElement !== searchInputRef.value && !(document.activeElement instanceof HTMLInputElement) && !(document.activeElement instanceof HTMLTextAreaElement) && !(document.activeElement instanceof HTMLSelectElement)) {
     e.preventDefault()
     searchInputRef.value?.focus()
@@ -112,10 +154,12 @@ function clearSearch() {
 function submitSearch() {
   const keyword = searchText.value.trim()
   if (!keyword || !selectedEngine.value) return
+
   const encodedKeyword = encodeURIComponent(keyword)
   const target = selectedEngine.value.searchUrl.includes('{query}')
     ? selectedEngine.value.searchUrl.replaceAll('{query}', encodedKeyword)
     : `${selectedEngine.value.searchUrl}${selectedEngine.value.searchUrl.includes('?') ? '&' : '?'}q=${encodedKeyword}`
+
   window.open(target, '_blank', 'noopener,noreferrer')
 }
 
@@ -123,7 +167,7 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
-async function openSite(site: Site) {
+function openSite(site: Site) {
   postData(`/public/sites/${site.id}/click`).catch(() => undefined)
   window.open(site.url, '_blank', 'noopener,noreferrer')
 }
@@ -135,20 +179,53 @@ function onImgError(siteId: string) {
 function getFallbackIcon(site: Site) {
   return site.fallbackIcon || site.title.slice(0, 1).toUpperCase()
 }
+
+function getSiteHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  }
+  catch {
+    return url
+  }
+}
+
+function getCategoryLabelForSite(site: Site) {
+  return site.category?.name
+    ?? categories.value.find((category) => category.id === site.categoryId || category.slug === site.category?.slug)?.name
+    ?? '未分类'
+}
+
+function getTagStyle(color?: string) {
+  return color
+    ? {
+        background: `${color}22`,
+        color,
+        borderColor: `${color}44`,
+      }
+    : {}
+}
 </script>
 
 <template>
-  <main class="home-layout min-h-screen" :class="{ 'sidebar-collapsed': sidebarCollapsed }" :data-theme="themeMode">
+  <main class="home-layout" :class="{ 'sidebar-collapsed': sidebarCollapsed }" :data-theme="themeMode">
+    <div class="home-backdrop" aria-hidden="true">
+      <span class="backdrop-orb backdrop-orb-cyan" />
+      <span class="backdrop-orb backdrop-orb-violet" />
+      <span class="backdrop-orb backdrop-orb-blue" />
+      <span class="backdrop-grid" />
+      <span class="backdrop-noise" />
+    </div>
+
     <aside class="left-sidebar hidden xl:flex">
       <div class="sidebar-brand">
         <div class="brand-mark">
           <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <use href="/icons.svg#windnav-icon"/>
+            <use href="/icons.svg#windnav-icon" />
           </svg>
         </div>
         <div class="sidebar-brand-text">
-          <p class="text-base font-bold text-white">{{ summary.site_title ?? 'WindNav' }}</p>
-          <p class="text-xs text-slate-400">Navigation</p>
+          <p>{{ summary.site_title ?? 'WindNav' }}</p>
+          <span>Glass Navigation</span>
         </div>
         <button class="sidebar-toggle" type="button" :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" @click="toggleSidebar">
           <PanelLeftOpen v-if="sidebarCollapsed" class="h-4 w-4" />
@@ -156,7 +233,29 @@ function getFallbackIcon(site: Site) {
         </button>
       </div>
 
-      <div class="sidebar-section">导航分类</div>
+      <section class="sidebar-overview glass-surface">
+        <p class="sidebar-eyebrow">Control Center</p>
+        <div class="sidebar-metrics">
+          <div class="sidebar-metric">
+            <span>站点</span>
+            <strong>{{ totalSiteCount }}</strong>
+          </div>
+          <div class="sidebar-metric">
+            <span>分类</span>
+            <strong>{{ categories.length }}</strong>
+          </div>
+          <div class="sidebar-metric">
+            <span>精选</span>
+            <strong>{{ pinnedSiteCount }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div class="sidebar-section-header">
+        <span>导航分类</span>
+        <small>{{ activeCategoryLabel }}</small>
+      </div>
+
       <button
         class="sidebar-link"
         :class="activeCategory === 'all' ? 'sidebar-link-active' : ''"
@@ -164,11 +263,12 @@ function getFallbackIcon(site: Site) {
         @click="activeCategory = 'all'"
       >
         <span class="sidebar-icon">全</span>
-        <span class="sidebar-text">全部</span>
-        <span class="sidebar-count">{{ sites.length }}</span>
+        <span class="sidebar-text">全部站点</span>
+        <span class="sidebar-count">{{ totalSiteCount }}</span>
       </button>
+
       <button
-        v-for="category in categories"
+        v-for="category in categoriesWithCounts"
         :key="category.id"
         class="sidebar-link"
         :class="activeCategory === category.slug ? 'sidebar-link-active' : ''"
@@ -177,96 +277,188 @@ function getFallbackIcon(site: Site) {
       >
         <span class="sidebar-icon">{{ category.name.slice(0, 1) }}</span>
         <span class="sidebar-text">{{ category.name }}</span>
-        <span class="sidebar-count">{{ sites.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug).length }}</span>
+        <span class="sidebar-count">{{ category.count }}</span>
       </button>
+
+      <div class="sidebar-footer glass-surface">
+        <p>快捷键</p>
+        <span>Ctrl / ⌘ + K</span>
+      </div>
     </aside>
 
     <section class="main-content">
-      <header class="hero-panel">
-        <nav class="hero-nav">
-          <div class="inline-flex items-center gap-2 text-sm font-medium text-slate-300 xl:hidden">
-            <span class="brand-mark brand-mark-sm">
-              <svg width="30" height="30" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <use href="/icons.svg#windnav-icon"/>
-              </svg>
-            </span>
-            {{ summary.site_title ?? 'WindNav' }}
-          </div>
-          <div class="hero-actions">
-            <button class="theme-toggle" type="button" :aria-label="isDarkMode ? '当前跟随深色模式' : '当前跟随浅色模式'" @click="toggleTheme">
-              <Sun v-if="isDarkMode" class="h-4 w-4" />
-              <Moon v-else class="h-4 w-4" />
-            </button>
-            <RouterLink to="/admin" class="admin-link">
-              <LayoutDashboard class="h-4 w-4" />
-              管理
-            </RouterLink>
-          </div>
-        </nav>
+      <header class="top-toolbar">
+        <div class="toolbar-chip glass-chip">
+          <span class="toolbar-dot" />
+          <span>{{ summary.site_title ?? 'WindNav' }}</span>
+        </div>
 
-        <div class="hero-body">
+        <div class="toolbar-actions">
+          <div class="toolbar-chip glass-chip toolbar-shortcut">/ 聚焦搜索</div>
+          <button class="theme-toggle" type="button" :aria-label="isDarkMode ? '切换到浅色模式' : '切换到深色模式'" @click="toggleTheme">
+            <Sun v-if="isDarkMode" class="h-4 w-4" />
+            <Moon v-else class="h-4 w-4" />
+          </button>
+          <RouterLink to="/admin" class="admin-link">
+            <LayoutDashboard class="h-4 w-4" />
+            管理台
+          </RouterLink>
+        </div>
+      </header>
+
+      <section class="hero-shell glass-surface">
+        <div class="hero-main">
           <div class="hero-copy">
             <div class="hero-badge">
               <Sparkles class="h-4 w-4" />
-              WindNav Start Page
+              WindNav Glass Portal
             </div>
             <h1>{{ summary.site_title ?? 'WindNav' }}</h1>
-            <p>{{ summary.site_subtitle ?? '简单轻快的自建导航页' }}</p>
+            <p>{{ summary.site_subtitle ?? '轻盈、沉浸、精致的自建导航起始页。' }}</p>
+
+            <div class="hero-stats">
+              <div class="hero-stat glass-chip">
+                <span>当前结果</span>
+                <strong>{{ filteredSiteCount }}</strong>
+              </div>
+              <div class="hero-stat glass-chip">
+                <span>搜索引擎</span>
+                <strong>{{ currentEngineName }}</strong>
+              </div>
+              <div class="hero-stat glass-chip">
+                <span>当前分类</span>
+                <strong>{{ activeCategoryLabel }}</strong>
+              </div>
+            </div>
           </div>
 
-          <div class="clock-card" aria-label="当前日期时间">
-            <div class="clock-time">{{ displayTime }}</div>
-            <div class="clock-date">{{ displayDate }}</div>
+          <div class="hero-side">
+            <div class="clock-card glass-panel" aria-label="当前日期时间">
+              <div class="clock-label">LOCAL TIME</div>
+              <div class="clock-time">{{ displayTime }}</div>
+              <div class="clock-date">{{ displayDate }}</div>
+            </div>
+
+            <div v-if="featuredSites.length" class="hero-preview glass-panel">
+              <div class="hero-preview-header">
+                <span>快速直达</span>
+                <em>{{ featuredSites.length }} 项</em>
+              </div>
+              <button
+                v-for="site in featuredSites"
+                :key="site.id"
+                class="preview-link"
+                type="button"
+                @click="openSite(site)"
+              >
+                <span class="preview-link-title">{{ site.title }}</span>
+                <span class="preview-link-host">{{ getSiteHost(site.url) }}</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <form class="search-box" role="search" @submit.prevent="submitSearch">
-          <Search class="pointer-events-none h-5 w-5 text-slate-400" />
-          <input
-            ref="searchInputRef"
-            v-model="searchText"
-            :placeholder="searchPlaceholder"
-            aria-label="搜索站点"
-          />
-          <select v-if="searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
-            <option v-for="engine in searchEngines" :key="engine.id" :value="engine.slug">{{ engine.name }}</option>
-          </select>
-          <button class="search-submit" type="submit" :disabled="!searchText.trim() || !selectedEngine">
-            <Globe2 class="h-4 w-4" />
-            搜索
-          </button>
+        <form class="search-panel glass-panel" role="search" @submit.prevent="submitSearch">
+          <div class="search-panel-main">
+            <Search class="search-panel-icon" />
+            <input
+              ref="searchInputRef"
+              v-model="searchText"
+              :placeholder="searchPlaceholder"
+              aria-label="搜索站点"
+            />
+          </div>
+
+          <div class="search-panel-actions">
+            <select v-if="searchEngines.length" v-model="selectedEngineSlug" class="search-engine-select" aria-label="网络搜索引擎">
+              <option v-for="engine in searchEngines" :key="engine.id" :value="engine.slug">{{ engine.name }}</option>
+            </select>
+            <button v-if="searchText.trim()" class="search-clear" type="button" @click="clearSearch">清空</button>
+            <button class="search-submit" type="submit" :disabled="!searchText.trim() || !selectedEngine">
+              <Globe2 class="h-4 w-4" />
+              搜索
+            </button>
+          </div>
         </form>
 
-        <div class="category-strip xl:hidden">
+        <div class="category-rail">
           <button
             class="category-pill"
             :class="activeCategory === 'all' ? 'category-pill-active' : ''"
             @click="activeCategory = 'all'"
           >
-            全部（{{ sites.length }}）
+            全部
+            <span>{{ totalSiteCount }}</span>
           </button>
           <button
-            v-for="category in categories"
+            v-for="category in categoriesWithCounts"
             :key="category.id"
             class="category-pill"
             :class="activeCategory === category.slug ? 'category-pill-active' : ''"
             @click="activeCategory = category.slug"
           >
-            {{ category.name }}（{{ sites.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug).length }}）
+            {{ category.name }}
+            <span>{{ category.count }}</span>
           </button>
         </div>
-      </header>
+      </section>
 
-      <section v-if="sitesQuery.isLoading.value" class="site-grid mt-8">
-        <div v-for="item in 9" :key="item" class="skeleton-card" />
+      <section v-if="sitesQuery.isLoading.value" class="content-stack">
+        <div class="site-section glass-surface loading-section">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">LOADING</p>
+              <h2 class="section-title">正在加载导航内容</h2>
+            </div>
+          </div>
+          <div class="site-grid">
+            <div v-for="item in 6" :key="item" class="skeleton-card" />
+          </div>
+        </div>
       </section>
 
       <section v-else-if="filteredSites.length" class="content-stack">
-        <div v-for="section in groupedSections" :key="section.category.id" class="site-section">
+        <div v-if="featuredSites.length" class="featured-strip glass-surface">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="section-kicker">FEATURED</p>
+              <h2 class="section-title">优先推荐</h2>
+              <p class="section-description">将高频访问入口前置，营造更强的起始页掌控感。</p>
+            </div>
+            <span>{{ featuredSites.length }} 个入口</span>
+          </div>
+
+          <div class="featured-grid">
+            <button
+              v-for="site in featuredSites"
+              :key="site.id"
+              class="featured-card"
+              type="button"
+              @click="openSite(site)"
+            >
+              <div class="site-icon featured-icon">
+                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
+                <span v-else>{{ getFallbackIcon(site) }}</span>
+              </div>
+              <div class="featured-content">
+                <strong>{{ site.title }}</strong>
+                <p>{{ site.description || getSiteHost(site.url) }}</p>
+              </div>
+              <ExternalLink class="site-open-icon" />
+            </button>
+          </div>
+        </div>
+
+        <div v-for="section in sectionBlocks" :key="section.key" class="site-section glass-surface">
           <div class="section-heading">
-            <h2 class="section-title">{{ section.category.name }}</h2>
+            <div>
+              <p class="section-kicker">{{ section.caption }}</p>
+              <h2 class="section-title">{{ section.name }}</h2>
+              <p class="section-description">{{ section.description }}</p>
+            </div>
             <span>{{ section.sites.length }} 个站点</span>
           </div>
+
           <div class="site-grid">
             <article
               v-for="site in section.sites"
@@ -278,61 +470,49 @@ function getFallbackIcon(site: Site) {
               @click="openSite(site)"
               @keydown.enter="openSite(site)"
             >
-              <div class="site-icon">
-                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
-                <span v-else>{{ getFallbackIcon(site) }}</span>
-              </div>
-              <div class="min-w-0 flex-1">
-                <h3>{{ site.title }}</h3>
-                <p>{{ site.description || site.url }}</p>
-                <div v-if="site.tags?.length" class="site-tags">
-                  <span v-for="tag in site.tags" :key="tag.id" class="site-tag" :style="tag.color ? { background: tag.color + '22', color: tag.color, borderColor: tag.color + '44' } : {}">{{ tag.name }}</span>
+              <div class="site-card-head">
+                <div class="site-icon">
+                  <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
+                  <span v-else>{{ getFallbackIcon(site) }}</span>
                 </div>
-              </div>
-              <ExternalLink class="site-open-icon" />
-            </article>
-          </div>
-        </div>
 
-        <div v-if="activeCategory === 'all' && uncategorizedSites.length" class="site-section">
-          <div class="section-heading">
-            <h2 class="section-title">其他</h2>
-            <span>{{ uncategorizedSites.length }} 个站点</span>
-          </div>
-          <div class="site-grid">
-            <article
-              v-for="site in uncategorizedSites"
-              :key="site.id"
-              class="site-card"
-              role="link"
-              tabindex="0"
-              :aria-label="'打开 ' + site.title"
-              @click="openSite(site)"
-              @keydown.enter="openSite(site)"
-            >
-              <div class="site-icon">
-                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
-                <span v-else>{{ getFallbackIcon(site) }}</span>
-              </div>
-              <div class="min-w-0 flex-1">
-                <h3>{{ site.title }}</h3>
-                <p>{{ site.description || site.url }}</p>
-                <div v-if="site.tags?.length" class="site-tags">
-                  <span v-for="tag in site.tags" :key="tag.id" class="site-tag" :style="tag.color ? { background: tag.color + '22', color: tag.color, borderColor: tag.color + '44' } : {}">{{ tag.name }}</span>
+                <div class="site-card-title-wrap">
+                  <h3>{{ site.title }}</h3>
+                  <span class="site-host">{{ getSiteHost(site.url) }}</span>
                 </div>
+
+                <ExternalLink class="site-open-icon" />
               </div>
-              <ExternalLink class="site-open-icon" />
+
+              <p class="site-description">{{ site.description || site.url }}</p>
+
+              <div class="site-card-footer">
+                <div v-if="site.tags?.length" class="site-tags">
+                  <span
+                    v-for="tag in site.tags"
+                    :key="tag.id"
+                    class="site-tag"
+                    :style="getTagStyle(tag.color)"
+                  >
+                    {{ tag.name }}
+                  </span>
+                </div>
+
+                <span class="site-card-badge">{{ site.isPinned ? '精选' : getCategoryLabelForSite(site) }}</span>
+              </div>
             </article>
           </div>
         </div>
       </section>
 
-      <div v-else class="empty-state">
+      <div v-else class="empty-state glass-surface">
+        <div class="empty-state-orb" />
         <SearchX class="empty-state-icon" />
         <p class="empty-state-title">没有找到匹配的站点</p>
-        <p class="empty-state-hint">试试调整搜索关键词，或者</p>
-        <button class="empty-state-clear" type="button" @click="clearSearch">清空搜索条件</button>
+        <p class="empty-state-hint">试试调整关键词、切换分类，或者直接清空当前筛选。</p>
+        <button class="empty-state-clear" type="button" @click="clearSearch">恢复默认视图</button>
       </div>
+
       <footer class="home-footer">
         <p>Powered by <strong>WindNav</strong> · {{ new Date().getFullYear() }}</p>
       </footer>
