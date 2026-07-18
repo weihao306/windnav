@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, SearchX, Sparkles, Sun } from 'lucide-vue-next'
+import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, SearchX, Sun } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getData, postData } from '../api/client'
 import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
@@ -13,8 +13,17 @@ type HomeSection = {
   sites: Site[]
 }
 
+type QuickFilter = {
+  key: string
+  name: string
+}
+
+const recentSiteStorageKey = 'windnav_recent_sites'
+
 const searchText = ref('')
 const activeCategory = ref('all')
+const activeQuickFilter = ref('all')
+const recentSiteIds = ref<number[]>([])
 const themeMode = ref<'dark' | 'light'>('light')
 const systemTheme = ref<'dark' | 'light'>('light')
 const selectedEngineSlug = ref('')
@@ -60,6 +69,49 @@ const categoriesWithCounts = computed(() => categories.value.map((category) => (
   ...category,
   count: sites.value.filter((site) => site.categoryId === category.id || site.category?.slug === category.slug).length,
 })))
+const quickFilters = computed<QuickFilter[]>(() => ([
+  { key: 'all', name: '全部' },
+  { key: 'recent', name: '最近访问' },
+  { key: 'pinned', name: '常用站点' },
+  ...categoriesWithCounts.value.map((category) => ({ key: category.slug, name: category.name })),
+]))
+const recentSites = computed(() => {
+  const siteMap = new Map(filteredSites.value.map((site) => [site.id, site]))
+  const fromHistory = recentSiteIds.value
+    .map((id) => siteMap.get(id))
+    .filter((site): site is Site => Boolean(site))
+
+  if (fromHistory.length >= 6) return fromHistory.slice(0, 6)
+
+  const supplemental = [...filteredSites.value]
+    .filter((site) => !recentSiteIds.value.includes(site.id))
+    .sort((a, b) => {
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return bTime - aTime
+    })
+
+  return [...fromHistory, ...supplemental].slice(0, 6)
+})
+const frequentSites = computed(() => {
+  const ordered = [...filteredSites.value].sort((a, b) => {
+    const aScore = (a.clickCount ?? 0) + (a.isPinned ? 1000 : 0)
+    const bScore = (b.clickCount ?? 0) + (b.isPinned ? 1000 : 0)
+    return bScore - aScore
+  })
+  return ordered.slice(0, 6)
+})
+const visibleSiteSections = computed(() => {
+  if (activeQuickFilter.value === 'recent') {
+    return [{ key: 'recent', name: '最近访问', description: '优先展示最近更新与访问痕迹较新的入口。', caption: 'RECENT', sites: recentSites.value }]
+  }
+
+  if (activeQuickFilter.value === 'pinned') {
+    return [{ key: 'pinned', name: '常用站点', description: '基于精选和访问频率整理的高频入口。', caption: 'PINNED', sites: frequentSites.value }]
+  }
+
+  return sectionBlocks.value
+})
 const sectionBlocks = computed<HomeSection[]>(() => {
   const sections = categories.value
     .map((category) => ({
@@ -88,45 +140,14 @@ const featuredSites = computed(() => {
   const pinned = filteredSites.value.filter((site) => site.isPinned)
   return (pinned.length ? pinned : filteredSites.value).slice(0, 3)
 })
-const activeCategoryMeta = computed(() => {
-  if (activeCategory.value === 'all') {
-    return {
-      name: '全部站点',
-      description: summary.value.site_subtitle ?? '轻盈、沉浸、精致的自建导航起始页。',
-      caption: 'ALL CATEGORIES',
-    }
-  }
-
-  const matchedCategory = categories.value.find((category) => category.slug === activeCategory.value || String(category.id) === activeCategory.value)
-
-  return {
-    name: matchedCategory?.name ?? '全部站点',
-    description: matchedCategory?.description || '当前分类下的站点已为你聚合展示。',
-    caption: matchedCategory?.slug?.toUpperCase() ?? 'CATEGORY',
-  }
-})
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
-const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
-const dailyMicrocopy = computed(() => {
-  const messages = [
-    '今天也把常用站点整理得井井有条。',
-    '从一个清爽入口开始，会更容易进入专注状态。',
-    '先找到入口，再把注意力留给真正重要的事。',
-    '把高频工具放近一点，灵感和效率都会更快抵达。',
-    '让每次打开浏览器，都像进入一张熟悉的工作台。',
-    '少一点寻找，多一点开始。',
-    '常用资源触手可及，节奏自然更顺。',
-  ]
-  const today = new Date()
-  const seed = Number(`${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`)
-  return messages[seed % messages.length]
-})
 const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
 const totalSiteCount = computed(() => sites.value.length)
 const filteredSiteCount = computed(() => filteredSites.value.length)
 const pinnedSiteCount = computed(() => sites.value.filter((site) => site.isPinned).length)
-const currentEngineName = computed(() => selectedEngine.value?.name ?? '未设置')
+const launcherTitle = computed(() => summary.value.site_title ?? 'WindNav')
+const launcherSubtitle = computed(() => summary.value.site_subtitle ?? '搜索优先的轻量导航启动器')
 
 function syncThemeFromSystem() {
   systemTheme.value = mediaQuery?.matches ? 'dark' : 'light'
@@ -139,6 +160,7 @@ watch(searchEngines, (engines) => {
 }, { immediate: true })
 
 onMounted(() => {
+  loadRecentSites()
   mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   syncThemeFromSystem()
   mediaQuery.addEventListener('change', syncThemeFromSystem)
@@ -176,6 +198,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 function clearSearch() {
   searchText.value = ''
   activeCategory.value = 'all'
+  activeQuickFilter.value = 'all'
   nextTick(() => searchInputRef.value?.focus())
 }
 
@@ -195,7 +218,47 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+function selectQuickFilter(key: string) {
+  activeQuickFilter.value = key
+  if (categoriesWithCounts.value.some((category) => category.slug === key)) {
+    activeCategory.value = key
+  }
+  else {
+    activeCategory.value = 'all'
+  }
+}
+
+function selectCategory(key: string) {
+  activeCategory.value = key
+  activeQuickFilter.value = key
+}
+
+function loadRecentSites() {
+  try {
+    const raw = localStorage.getItem(recentSiteStorageKey)
+    if (!raw) {
+      recentSiteIds.value = []
+      return
+    }
+
+    const parsed = JSON.parse(raw)
+    recentSiteIds.value = Array.isArray(parsed)
+      ? parsed.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0).slice(0, 12)
+      : []
+  }
+  catch {
+    recentSiteIds.value = []
+  }
+}
+
+function rememberRecentSite(siteId: number) {
+  const nextIds = [siteId, ...recentSiteIds.value.filter((id) => id !== siteId)].slice(0, 12)
+  recentSiteIds.value = nextIds
+  localStorage.setItem(recentSiteStorageKey, JSON.stringify(nextIds))
+}
+
 function openSite(site: Site) {
+  rememberRecentSite(site.id)
   postData(`/public/sites/${site.id}/click`).catch(() => undefined)
   window.open(site.url, '_blank', 'noopener,noreferrer')
 }
@@ -287,7 +350,7 @@ function getTagStyle(color?: string) {
         class="sidebar-link"
         :class="activeCategory === 'all' ? 'sidebar-link-active' : ''"
         title="全部"
-        @click="activeCategory = 'all'"
+        @click="selectCategory('all')"
       >
         <span class="sidebar-icon">全</span>
         <span class="sidebar-text">全部站点</span>
@@ -300,7 +363,7 @@ function getTagStyle(color?: string) {
         class="sidebar-link"
         :class="activeCategory === category.slug ? 'sidebar-link-active' : ''"
         :title="category.name"
-        @click="activeCategory = category.slug"
+        @click="selectCategory(category.slug)"
       >
         <span class="sidebar-icon">{{ category.name.slice(0, 1) }}</span>
         <span class="sidebar-text">{{ category.name }}</span>
@@ -333,57 +396,10 @@ function getTagStyle(color?: string) {
         </div>
       </header>
 
-      <section class="hero-shell glass-surface" :class="{ 'hero-shell-focused': activeCategory !== 'all' }">
-        <div class="hero-main">
-          <div class="hero-copy">
-            <div class="hero-badge">
-              <Sparkles class="h-4 w-4" />
-              {{ activeCategory === 'all' ? 'WindNav Glass Portal' : 'Category Focus' }}
-            </div>
-            <h1>{{ activeCategory === 'all' ? (summary.site_title ?? 'WindNav') : activeCategoryMeta.name }}</h1>
-            <p>{{ activeCategoryMeta.description }}</p>
-
-            <div v-if="activeCategory === 'all'" class="hero-microcopy glass-panel" aria-label="今日一句">
-              <span class="hero-microcopy-label">TODAY'S NOTE</span>
-              <strong>{{ dailyMicrocopy }}</strong>
-            </div>
-
-            <div class="hero-stats">
-              <div class="hero-stat glass-chip">
-                <span>当前结果</span>
-                <strong>{{ filteredSiteCount }}</strong>
-              </div>
-              <div class="hero-stat glass-chip">
-                <span>搜索引擎</span>
-                <strong>{{ currentEngineName }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="hero-side">
-            <div class="clock-card glass-panel" aria-label="当前日期时间">
-              <div class="clock-label">LOCAL TIME</div>
-              <div class="clock-time">{{ displayTime }}</div>
-              <div class="clock-date">{{ displayDate }}</div>
-            </div>
-
-            <div v-if="featuredSites.length" class="hero-preview glass-panel">
-              <div class="hero-preview-header">
-                <span>快速直达</span>
-                <em>{{ featuredSites.length }} 项</em>
-              </div>
-              <button
-                v-for="site in featuredSites"
-                :key="site.id"
-                class="preview-link"
-                type="button"
-                @click="openSite(site)"
-              >
-                <span class="preview-link-title">{{ site.title }}</span>
-                <span class="preview-link-host">{{ getSiteHost(site.url) }}</span>
-              </button>
-            </div>
-          </div>
+      <section class="launcher-shell glass-surface">
+        <div class="launcher-copy">
+          <h1>{{ launcherTitle }}</h1>
+          <p>{{ launcherSubtitle }}</p>
         </div>
 
         <form class="search-panel glass-panel" role="search" @submit.prevent="submitSearch">
@@ -411,23 +427,63 @@ function getTagStyle(color?: string) {
 
         <div class="category-rail">
           <button
+            v-for="filter in quickFilters"
+            :key="filter.key"
             class="category-pill"
-            :class="activeCategory === 'all' ? 'category-pill-active' : ''"
-            @click="activeCategory = 'all'"
+            :class="activeQuickFilter === filter.key ? 'category-pill-active' : ''"
+            @click="selectQuickFilter(filter.key)"
           >
-            全部
-            <span>{{ totalSiteCount }}</span>
+            {{ filter.name }}
+            <span>{{ filter.key === 'all' ? totalSiteCount : filter.key === 'recent' ? recentSites.length : filter.key === 'pinned' ? frequentSites.length : (categoriesWithCounts.find((category) => category.slug === filter.key)?.count ?? 0) }}</span>
           </button>
-          <button
-            v-for="category in categoriesWithCounts"
-            :key="category.id"
-            class="category-pill"
-            :class="activeCategory === category.slug ? 'category-pill-active' : ''"
-            @click="activeCategory = category.slug"
-          >
-            {{ category.name }}
-            <span>{{ category.count }}</span>
-          </button>
+        </div>
+        <div class="launcher-meta">
+          <div class="launcher-meta-card glass-chip">
+            <span>当前结果</span>
+            <strong>{{ filteredSiteCount }}</strong>
+          </div>
+          <div class="launcher-meta-card glass-chip">
+            <span>当前时间</span>
+            <strong>{{ displayTime }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-stack home-dashboard">
+        <div class="quick-row">
+          <section class="quick-strip glass-surface">
+            <div class="quick-strip-header">
+              <div>
+                <p class="section-kicker">RECENT</p>
+                <h2 class="quick-strip-title">最近访问</h2>
+              </div>
+              <span>{{ recentSites.length }} 个入口</span>
+            </div>
+
+            <div class="quick-strip-grid">
+              <button v-for="site in recentSites" :key="site.id" class="quick-pill" type="button" @click="openSite(site)">
+                <span class="quick-pill-title">{{ site.title }}</span>
+                <span class="quick-pill-host">{{ getSiteHost(site.url) }}</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="quick-strip glass-surface">
+            <div class="quick-strip-header">
+              <div>
+                <p class="section-kicker">PINNED</p>
+                <h2 class="quick-strip-title">常用站点</h2>
+              </div>
+              <span>{{ frequentSites.length }} 个入口</span>
+            </div>
+
+            <div class="quick-strip-grid">
+              <button v-for="site in frequentSites" :key="site.id" class="quick-pill" type="button" @click="openSite(site)">
+                <span class="quick-pill-title">{{ site.title }}</span>
+                <span class="quick-pill-host">{{ getSiteHost(site.url) }}</span>
+              </button>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -446,51 +502,12 @@ function getTagStyle(color?: string) {
       </section>
 
       <section v-else-if="filteredSites.length" class="content-stack">
-        <div v-if="activeCategory === 'all' && featuredSites.length" class="featured-strip glass-surface">
-          <div class="section-heading compact-heading">
-            <div>
-              <p class="section-kicker">FEATURED</p>
-              <h2 class="section-title">优先推荐</h2>
-              <p class="section-description">将高频访问入口前置，营造更强的起始页掌控感。</p>
-            </div>
-            <span>{{ featuredSites.length }} 个入口</span>
-          </div>
-
-          <div class="featured-grid">
-            <button
-              v-for="site in featuredSites"
-              :key="site.id"
-              class="featured-card"
-              type="button"
-              @click="openSite(site)"
-            >
-              <div class="site-icon featured-icon">
-                <img v-if="site.iconUrl && !brokenIcons.has(String(site.id))" :src="site.iconUrl" alt="" @error="onImgError(String(site.id))" />
-                <span v-else>{{ getFallbackIcon(site) }}</span>
-              </div>
-              <div class="featured-content">
-                <strong>{{ site.title }}</strong>
-                <p>{{ site.description || getSiteHost(site.url) }}</p>
-              </div>
-              <ExternalLink class="site-open-icon" />
-            </button>
-          </div>
-        </div>
-
-        <div v-for="section in sectionBlocks" :key="section.key" class="site-section glass-surface">
-          <div v-if="activeCategory === 'all'" class="section-heading">
+        <div v-for="section in visibleSiteSections" :key="section.key" class="site-section glass-surface">
+          <div class="section-heading">
             <div>
               <p class="section-kicker">{{ section.caption }}</p>
               <h2 class="section-title">{{ section.name }}</h2>
               <p class="section-description">{{ section.description }}</p>
-            </div>
-            <span>{{ section.sites.length }} 个站点</span>
-          </div>
-          <div v-else class="section-heading section-heading-focused">
-            <div>
-              <p class="section-kicker">FILTERED</p>
-              <h2 class="section-title">已筛选站点</h2>
-              <p class="section-description">当前分类下的站点已聚合展示，减少重复标题干扰。</p>
             </div>
             <span>{{ section.sites.length }} 个站点</span>
           </div>
