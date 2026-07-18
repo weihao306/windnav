@@ -18,9 +18,7 @@ jobs:
             platform: linux/amd64
           - arch: aarch64
             platform: linux/arm64
-    runs-on: opensuse-${{ matrix.arch }}
-    container:
-      image: opensuse/tumbleweed:basic
+    runs-on: debian-${{ matrix.arch }}
 
     steps:
       - name: Check out repository code
@@ -29,7 +27,7 @@ jobs:
       - name: Install Go toolchain and deps
         run: |
           set -e
-          zypper --non-interactive install -y wget git ca-certificates gcc go curl
+          apt-get update && apt-get install -y wget git ca-certificates gcc golang curl
 
       - name: Run backend code checks
         working-directory: backend
@@ -51,9 +49,7 @@ jobs:
             platform: linux/amd64
           - arch: aarch64
             platform: linux/arm64
-    runs-on: opensuse-${{ matrix.arch }}
-    container:
-      image: opensuse/tumbleweed:basic
+    runs-on: debian-${{ matrix.arch }}
 
     steps:
       - name: Check out repository code
@@ -62,7 +58,7 @@ jobs:
       - name: Install Node.js toolchain and deps
         run: |
           set -e
-          zypper --non-interactive install -y wget git ca-certificates curl nodejs npm
+          apt-get update && apt-get install -y wget git ca-certificates curl nodejs npm
 
       - name: Install frontend dependencies
         working-directory: frontend

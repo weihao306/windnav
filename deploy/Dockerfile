@@ -1,21 +1,23 @@
-FROM golang:1.26-alpine AS backend-builder
+FROM alpine:3.24 AS backend-builder
 WORKDIR /app/backend
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    apk add --no-cache build-base
+    apk add --no-cache build-base go
 COPY backend/ ./
 RUN CGO_ENABLED=1 go build -mod=vendor -o /out/windnav ./cmd/server
 
-FROM node:24-alpine AS frontend-builder
+FROM alpine:3.24 AS frontend-builder
 WORKDIR /app/frontend
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk add --no-cache nodejs npm
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM nginx:1.29-alpine AS runner
+FROM alpine:3.24 AS runner
 WORKDIR /app
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata
+    apk add --no-cache ca-certificates tzdata nginx
 COPY --from=backend-builder /out/windnav /app/windnav
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
