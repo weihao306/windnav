@@ -19,9 +19,8 @@ jobs:
             platform: linux/amd64
           - arch: aarch64
             platform: linux/arm64
-    runs-on: opensuse-${{ matrix.arch }}
+    runs-on: debian-${{ matrix.arch }}
     container:
-      image: opensuse/tumbleweed:basic
       volumes:
         - /run/docker.sock:/var/run/docker.sock
 
@@ -75,9 +74,8 @@ jobs:
 
   merge:
     needs: build
-    runs-on: opensuse-aarch64
+    runs-on: debian-aarch64
     container:
-      image: opensuse/tumbleweed:basic
       volumes:
         - /run/docker.sock:/var/run/docker.sock
     steps:
