@@ -396,6 +396,73 @@ func siteFromInput(req siteInput) model.Site {
 	}
 }
 
+type dashboardStats struct {
+	SiteCount         int                `json:"siteCount"`
+	VisibleSiteCount  int                `json:"visibleSiteCount"`
+	CategoryCount     int                `json:"categoryCount"`
+	TagCount          int                `json:"tagCount"`
+	SearchEngineCount int                `json:"searchEngineCount"`
+	TotalClicks       int64              `json:"totalClicks"`
+	PinnedCount       int                `json:"pinnedCount"`
+	TopClicked        []topClickedSite   `json:"topClicked"`
+	CategoryDist      []categoryDistItem `json:"categoryDist"`
+}
+
+type topClickedSite struct {
+	ID         uint   `json:"id"`
+	Title      string `json:"title"`
+	ClickCount int64  `json:"clickCount"`
+}
+
+type categoryDistItem struct {
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+func (s *Server) dashboardStats(c *gin.Context) {
+	var stats dashboardStats
+
+	// site count
+	s.db.Model(&model.Site{}).Select("COUNT(*)").Scan(&stats.SiteCount)
+
+	// visible site count
+	s.db.Model(&model.Site{}).Where("is_visible = ?", true).Select("COUNT(*)").Scan(&stats.VisibleSiteCount)
+
+	// category count
+	s.db.Model(&model.Category{}).Select("COUNT(*)").Scan(&stats.CategoryCount)
+
+	// tag count
+	s.db.Model(&model.Tag{}).Select("COUNT(*)").Scan(&stats.TagCount)
+
+	// search engine count
+	s.db.Model(&model.SearchEngine{}).Select("COUNT(*)").Scan(&stats.SearchEngineCount)
+
+	// total clicks
+	s.db.Model(&model.Site{}).Select("COALESCE(SUM(click_count), 0)").Scan(&stats.TotalClicks)
+
+	// pinned count
+	s.db.Model(&model.Site{}).Where("is_pinned = ?", true).Select("COUNT(*)").Scan(&stats.PinnedCount)
+
+	// top clicked sites (top 6)
+	s.db.Model(&model.Site{}).
+		Order("click_count desc, sort_order asc, id asc").
+		Limit(6).
+		Select("id, title, click_count").
+		Find(&stats.TopClicked)
+
+	// category distribution (top 5)
+	s.db.Model(&model.Site{}).
+		Select("categories.id, categories.name, COUNT(*) as count").
+		Joins("JOIN categories ON categories.id = sites.category_id").
+		Group("categories.id, categories.name").
+		Order("count desc, categories.sort_order asc").
+		Limit(5).
+		Scan(&stats.CategoryDist)
+
+	ok(c, stats, nil)
+}
+
 func searchEngineFromInput(req searchEngineInput) model.SearchEngine {
 	visible := true
 	if req.IsVisible != nil {

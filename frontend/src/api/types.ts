@@ -70,8 +70,32 @@ export type User = {
   role: string
 }
 
+export type TopClickedSite = {
+	id: number
+	title: string
+	clickCount: number
+}
+
+export type CategoryDistItem = {
+	id: number
+	name: string
+	count: number
+}
+
+export type DashboardStats = {
+	siteCount: number
+	visibleSiteCount: number
+	categoryCount: number
+	tagCount: number
+	searchEngineCount: number
+	totalClicks: number
+	pinnedCount: number
+	topClicked: TopClickedSite[]
+	categoryDist: CategoryDistItem[]
+}
+
 export type ListMeta = {
-  page?: number
-  pageSize?: number
-  total?: number
+	page?: number
+	pageSize?: number
+	total?: number
 }

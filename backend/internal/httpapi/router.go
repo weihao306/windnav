@@ -43,6 +43,7 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	auth.GET("/me", s.authRequired(), s.me)
 
 	admin := api.Group("/admin", s.authRequired())
+	admin.GET("/dashboard/stats", s.dashboardStats)
 	admin.GET("/categories", s.listCategories)
 	admin.POST("/categories", s.createCategory)
 	admin.PUT("/categories/:id", s.updateCategory)
