@@ -29,6 +29,10 @@ jobs:
       - name: Install Go toolchain and deps
         run: |
           set -e
+          zypper mr -da
+          zypper ar -fcg 'https://mirrors.ustc.edu.cn/opensuse/tumbleweed/repo/oss' USTC:OSS
+          zypper ar -fcg 'https://mirrors.ustc.edu.cn/opensuse/tumbleweed/repo/non-oss' USTC:NON-OSS
+          zypper ar -fcg 'https://mirrors.ustc.edu.cn/opensuse/update/tumbleweed' USTC:UPDATE
           zypper --non-interactive refresh
           zypper --non-interactive install -y wget git ca-certificates gcc go curl
 
