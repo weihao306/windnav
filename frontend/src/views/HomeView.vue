@@ -107,7 +107,7 @@ const visibleSiteSections = computed(() => {
   }
 
   if (activeQuickFilter.value === 'pinned') {
-    return [{ key: 'pinned', name: '常用站点', description: '基于精选和访问频率整理的高频入口。', caption: 'PINNED', sites: frequentSites.value }]
+    return [{ key: 'pinned', name: '常用站点', description: '基于置顶和访问频率整理的高频入口。', caption: 'PINNED', sites: frequentSites.value }]
   }
 
   return sectionBlocks.value
@@ -135,17 +135,20 @@ const sectionBlocks = computed<HomeSection[]>(() => {
 
   return sections
 })
-const featuredSites = computed(() => {
-  if (activeCategory.value !== 'all') return []
-  const pinned = filteredSites.value.filter((site) => site.isPinned)
-  return (pinned.length ? pinned : filteredSites.value).slice(0, 3)
-})
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
 const totalSiteCount = computed(() => sites.value.length)
+const totalTagCount = computed(() => {
+  const tagIds = new Set<number>()
+  for (const site of sites.value) {
+    for (const tag of site.tags ?? []) {
+      tagIds.add(tag.id)
+    }
+  }
+  return tagIds.size
+})
 const filteredSiteCount = computed(() => filteredSites.value.length)
-const pinnedSiteCount = computed(() => sites.value.filter((site) => site.isPinned).length)
 const launcherTitle = computed(() => summary.value.site_title ?? 'WindNav')
 const launcherSubtitle = computed(() => summary.value.site_subtitle ?? '搜索优先的轻量导航启动器')
 
@@ -336,8 +339,8 @@ function getTagStyle(color?: string) {
             <strong>{{ categories.length }}</strong>
           </div>
           <div class="sidebar-metric">
-            <span>精选</span>
-            <strong>{{ pinnedSiteCount }}</strong>
+            <span>标签</span>
+            <strong>{{ totalTagCount }}</strong>
           </div>
         </div>
       </section>
@@ -551,7 +554,7 @@ function getTagStyle(color?: string) {
                   </span>
                 </div>
 
-                <span class="site-card-badge">{{ site.isPinned ? '精选' : getCategoryLabelForSite(site) }}</span>
+                <span class="site-card-badge">{{ getCategoryLabelForSite(site) }}</span>
               </div>
             </article>
           </div>

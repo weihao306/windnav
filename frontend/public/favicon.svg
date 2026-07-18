@@ -5,11 +5,9 @@
       <stop offset="100%" stop-color="#3b82f6"/>
     </linearGradient>
   </defs>
-  <!-- 圆角方形背景 -->
   <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#g)"/>
-  <!-- 罗盘指针（北向箭头） -->
-  <path d="M16 6 L24 21 L18 21 L18 28 L14 28 L14 21 L8 21 Z" fill="#ffffff"/>
-  <!-- 微风线条（简化版，favicon 小尺寸仍可辨识） -->
-  <path d="M3 17 Q7 23 10 15" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.65"/>
-  <path d="M29 17 Q25 23 22 15" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.95"/>
+  <path d="M16 16 L16 6 C19 8 21 12 16 16Z" fill="#ffffff" opacity="0.95"/>
+  <path d="M16 16 L25 21 C27 18 25 14 16 16Z" fill="#ffffff" opacity="0.8"/>
+  <path d="M16 16 L7 21 C5 18 7 14 16 16Z" fill="#ffffff" opacity="0.85"/>
 </svg>
