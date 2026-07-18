@@ -108,6 +108,20 @@ const activeCategoryMeta = computed(() => {
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
 const displayDate = computed(() => currentTime.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
+const dailyMicrocopy = computed(() => {
+  const messages = [
+    '今天也把常用站点整理得井井有条。',
+    '从一个清爽入口开始，会更容易进入专注状态。',
+    '先找到入口，再把注意力留给真正重要的事。',
+    '把高频工具放近一点，灵感和效率都会更快抵达。',
+    '让每次打开浏览器，都像进入一张熟悉的工作台。',
+    '少一点寻找，多一点开始。',
+    '常用资源触手可及，节奏自然更顺。',
+  ]
+  const today = new Date()
+  const seed = Number(`${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`)
+  return messages[seed % messages.length]
+})
 const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
 const totalSiteCount = computed(() => sites.value.length)
 const filteredSiteCount = computed(() => filteredSites.value.length)
@@ -328,6 +342,11 @@ function getTagStyle(color?: string) {
             </div>
             <h1>{{ activeCategory === 'all' ? (summary.site_title ?? 'WindNav') : activeCategoryMeta.name }}</h1>
             <p>{{ activeCategoryMeta.description }}</p>
+
+            <div v-if="activeCategory === 'all'" class="hero-microcopy glass-panel" aria-label="今日一句">
+              <span class="hero-microcopy-label">TODAY'S NOTE</span>
+              <strong>{{ dailyMicrocopy }}</strong>
+            </div>
 
             <div class="hero-stats">
               <div class="hero-stat glass-chip">

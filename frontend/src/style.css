@@ -662,6 +662,30 @@ img {
   line-height: 1.78;
 }
 
+.hero-microcopy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 32rem;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+.hero-microcopy-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.hero-microcopy strong {
+  color: var(--text-strong);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
 .hero-stats {
   display: flex;
   flex-wrap: wrap;
@@ -1448,6 +1472,7 @@ img {
   }
 
   .hero-copy p,
+  .hero-microcopy strong,
   .section-description,
   .empty-state-hint {
     font-size: 0.9rem;
