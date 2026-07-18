@@ -507,7 +507,10 @@ img {
 }
 
 .sidebar-collapsed .sidebar-brand {
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 98px;
 }
 
 .sidebar-collapsed .sidebar-brand-text,
@@ -520,9 +523,7 @@ img {
 }
 
 .sidebar-collapsed .sidebar-toggle {
-  position: absolute;
-  top: 18px;
-  right: 18px;
+  position: static;
 }
 
 .sidebar-collapsed .sidebar-link {
