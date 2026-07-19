@@ -14,10 +14,10 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM alpine:3.24 AS runner
+FROM nginx:1.29-alpine AS runner
 WORKDIR /app
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata nginx
+    apk add --no-cache ca-certificates tzdata
 COPY --from=backend-builder /out/windnav /app/windnav
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
