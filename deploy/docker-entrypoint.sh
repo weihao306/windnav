@@ -7,6 +7,8 @@ BACKEND_PID=$!
 nginx -g "daemon off;" &
 NGINX_PID=$!
 
+trap 'kill "$BACKEND_PID" "$NGINX_PID" 2>/dev/null || true; wait "$BACKEND_PID" 2>/dev/null || true; wait "$NGINX_PID" 2>/dev/null || true' INT TERM EXIT
+
 while true; do
     if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
         wait "$BACKEND_PID"
