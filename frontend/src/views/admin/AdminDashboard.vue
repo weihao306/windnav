@@ -58,27 +58,27 @@ const summaryCards = computed(() => [
 
 <template>
   <div class="grid gap-5">
-    <header class="rounded-[8px] border border-slate-200 bg-white p-5">
+    <header class="admin-page-header">
       <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold text-slate-950">管理概览</h1>
-          <p class="mt-1 text-sm text-slate-500">{{ settings.data.value?.site_title ?? 'WindNav' }}</p>
+          <h1>管理概览</h1>
+          <p>{{ settings.data.value?.site_title ?? 'WindNav' }} 的内容与访问表现</p>
         </div>
-        <div class="rounded-[8px] bg-slate-50 px-4 py-3 text-sm text-slate-500">
+        <div class="admin-status admin-status-success">
           当前已收录 <span class="font-semibold text-slate-900">{{ siteCount }}</span> 个站点，累计点击 <span class="font-semibold text-slate-900">{{ totalClicks }}</span>
         </div>
       </div>
     </header>
 
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <article v-for="card in summaryCards" :key="card.title" class="rounded-[8px] border border-slate-200 bg-white p-5">
+      <article v-for="card in summaryCards" :key="card.title" class="admin-panel p-5">
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-sm text-slate-500">{{ card.title }}</p>
             <div class="mt-2 text-3xl font-semibold text-slate-950">{{ card.value }}</div>
             <p class="mt-2 text-sm text-slate-400">{{ card.note }}</p>
           </div>
-          <div :class="['flex h-11 w-11 items-center justify-center rounded-[8px]', card.iconClass]">
+           <div :class="['flex h-11 w-11 items-center justify-center rounded-[14px]', card.iconClass]">
             <component :is="card.icon" class="h-5 w-5" />
           </div>
         </div>
@@ -86,13 +86,13 @@ const summaryCards = computed(() => [
     </section>
 
     <section class="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
-      <article class="rounded-[8px] border border-slate-200 bg-white p-5">
+      <article class="admin-panel p-5">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-950">访问点击趋势</h2>
             <p class="mt-1 text-sm text-slate-500">按站点点击量排序，观察当前热门内容</p>
           </div>
-          <div class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700">TOP {{ clickTrend.length }}</div>
+          <div class="admin-status">TOP {{ clickTrend.length }}</div>
         </div>
 
         <div v-if="clickTrend.length" class="mt-5 space-y-4">
@@ -106,19 +106,19 @@ const summaryCards = computed(() => [
             </div>
           </div>
         </div>
-        <div v-else class="mt-5 rounded-[8px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        <div v-else class="admin-empty mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50">
           暂无点击数据，新增站点并产生访问后会显示趋势图
         </div>
       </article>
 
-      <article class="rounded-[8px] border border-slate-200 bg-white p-5">
+      <article class="admin-panel p-5">
         <div>
           <h2 class="text-lg font-semibold text-slate-950">分类收录分布</h2>
           <p class="mt-1 text-sm text-slate-500">展示各分类下站点数量，便于识别内容重心</p>
         </div>
 
         <div v-if="categoryTrend.length" class="mt-5 space-y-4">
-          <div v-for="category in categoryTrend" :key="category.id" class="rounded-[8px] border border-slate-100 bg-slate-50 p-4">
+          <div v-for="category in categoryTrend" :key="category.id" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <div class="flex items-center justify-between gap-3">
               <div class="font-medium text-slate-800">{{ category.name }}</div>
               <div class="text-sm text-slate-500">{{ category.count }} 个站点</div>
@@ -128,14 +128,14 @@ const summaryCards = computed(() => [
             </div>
           </div>
         </div>
-        <div v-else class="mt-5 rounded-[8px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+        <div v-else class="admin-empty mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50">
           暂无分类数据
         </div>
       </article>
     </section>
 
     <section class="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-      <article class="rounded-[8px] border border-slate-200 bg-white p-5">
+      <article class="admin-panel p-5">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-950">运营建议</h2>
@@ -144,13 +144,13 @@ const summaryCards = computed(() => [
           <TrendingUp class="h-5 w-5 text-amber-500" />
         </div>
         <ul class="mt-4 grid gap-3 text-sm text-slate-600">
-          <li class="rounded-[8px] bg-slate-50 px-4 py-3">热门站点集中在前 {{ clickTrend.length }} 个项目，可优先优化这些站点的描述与排序。</li>
-          <li class="rounded-[8px] bg-slate-50 px-4 py-3">当前展示中站点占比 {{ siteCount ? Math.round((visibleSiteCount / siteCount) * 100) : 0 }}%，可检查隐藏内容是否需要重新开放。</li>
-          <li class="rounded-[8px] bg-slate-50 px-4 py-3">置顶推荐位共有 {{ pinnedCount }} 个，适合承载高点击或重点导航内容。</li>
+           <li class="rounded-xl bg-slate-50 px-4 py-3">热门站点集中在前 {{ clickTrend.length }} 个项目，可优先优化这些站点的描述与排序。</li>
+           <li class="rounded-xl bg-slate-50 px-4 py-3">当前展示中站点占比 {{ siteCount ? Math.round((visibleSiteCount / siteCount) * 100) : 0 }}%，可检查隐藏内容是否需要重新开放。</li>
+           <li class="rounded-xl bg-slate-50 px-4 py-3">置顶推荐位共有 {{ pinnedCount }} 个，适合承载高点击或重点导航内容。</li>
         </ul>
       </article>
 
-      <article class="rounded-[8px] border border-slate-200 bg-white p-5">
+      <article class="admin-panel p-5">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-950">快捷入口</h2>
@@ -159,10 +159,10 @@ const summaryCards = computed(() => [
           <Settings class="h-5 w-5 text-slate-400" />
         </div>
         <div class="mt-4 flex flex-wrap gap-3">
-          <RouterLink to="/admin/sites" class="inline-flex items-center gap-2 rounded-[8px] bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700">
+           <RouterLink to="/admin/sites" class="admin-button">
             <Folder class="h-4 w-4" />站点管理
           </RouterLink>
-          <RouterLink to="/admin/settings" class="inline-flex items-center gap-2 rounded-[8px] bg-slate-900 px-4 py-2 text-sm font-medium text-white">
+           <RouterLink to="/admin/settings" class="admin-button-secondary">
             <Settings class="h-4 w-4" />站点设置
           </RouterLink>
         </div>

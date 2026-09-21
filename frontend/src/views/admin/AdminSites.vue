@@ -7,6 +7,8 @@ import type { Category, Site, Tag } from '../../api/types'
 
 const queryClient = useQueryClient()
 const error = ref('')
+const success = ref('')
+const saving = ref(false)
 const form = reactive({ categoryId: 0, title: '', url: '', description: '', iconUrl: '', fallbackIcon: '', sortOrder: 0, isPinned: false, isVisible: true, tagIds: [] as number[] })
 const categorySearch = ref('')
 const tagSearch = ref('')
@@ -62,28 +64,38 @@ function toggleTag(tagId: number) {
 
 async function createSite() {
   error.value = ''
+  success.value = ''
+  saving.value = true
   try {
     await postData('/admin/sites', form)
     resetForm()
     await queryClient.invalidateQueries({ queryKey: ['admin-sites'] })
+    success.value = '站点已添加'
   } catch (err) {
     error.value = err instanceof Error ? err.message : '保存失败'
+  } finally {
+    saving.value = false
   }
 }
 
 async function removeSite(id: number) {
+  if (!window.confirm('确定删除这个站点吗？删除后无法恢复。')) return
+  error.value = ''
+  success.value = ''
   await deleteData(`/admin/sites/${id}`)
   await queryClient.invalidateQueries({ queryKey: ['admin-sites'] })
+  success.value = '站点已删除'
 }
 </script>
 
 <template>
   <div class="grid gap-5">
-    <header class="rounded-[8px] border border-slate-200 bg-white p-5">
-      <h1 class="text-2xl font-semibold text-slate-950">站点管理</h1>
+    <header class="admin-page-header">
+      <div><h1>站点管理</h1><p>维护首页展示的导航入口、分类与常用标签。</p></div>
+      <span class="admin-status">{{ sites.data.value?.length ?? 0 }} 个站点</span>
     </header>
 
-    <form class="grid gap-3 rounded-[8px] border border-slate-200 bg-white p-5 lg:grid-cols-6" @submit.prevent="createSite">
+    <form class="admin-panel grid gap-4 p-5 lg:grid-cols-6" @submit.prevent="createSite">
       <details class="relative lg:col-span-2">
         <summary class="admin-input flex cursor-pointer list-none items-center justify-between gap-3 text-sm text-slate-700 marker:hidden">
           <span class="truncate">{{ selectedCategoryName }}</span>
@@ -122,24 +134,24 @@ async function removeSite(id: number) {
         </div>
       </details>
       <input v-model.number="form.sortOrder" type="number" placeholder="排序" class="admin-input" />
-      <label class="flex h-11 items-center gap-2 rounded-[8px] border border-slate-200 px-3 text-sm text-slate-600"><input v-model="form.isPinned" type="checkbox" />置顶</label>
-      <label class="flex h-11 items-center gap-2 rounded-[8px] border border-slate-200 px-3 text-sm text-slate-600"><input v-model="form.isVisible" type="checkbox" />显示</label>
-      <button class="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-cyan-600 px-4 font-medium text-white hover:bg-cyan-700 disabled:opacity-50" :disabled="!canCreate"><Plus class="h-4 w-4" />新增站点</button>
-      <p v-if="error" class="text-sm text-rose-600 lg:col-span-6">{{ error }}</p>
+      <label class="admin-checkbox"><input v-model="form.isPinned" type="checkbox" />置顶推荐</label>
+      <label class="admin-checkbox"><input v-model="form.isVisible" type="checkbox" />公开显示</label>
+      <button class="admin-button" type="submit" :disabled="!canCreate || saving"><Plus class="h-4 w-4" />{{ saving ? '正在添加...' : '新增站点' }}</button>
+      <p v-if="error" class="admin-alert admin-alert-error lg:col-span-6">{{ error }}</p>
+      <p v-if="success" class="admin-alert admin-alert-success lg:col-span-6">{{ success }}</p>
     </form>
 
-    <section class="grid gap-3">
-      <article v-for="site in sites.data.value" :key="site.id" class="grid gap-3 rounded-[8px] border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_160px_90px] lg:items-center">
+    <section class="admin-panel overflow-hidden">
+      <article v-for="site in sites.data.value" :key="site.id" class="admin-list-row lg:grid-cols-[1fr_160px_100px]">
         <div class="min-w-0"><div class="truncate font-medium text-slate-950">{{ site.title }}</div><div class="truncate text-sm text-slate-500">{{ site.url }}</div><div class="mt-1 text-xs text-slate-400">{{ site.category?.name ?? '未分类' }}</div></div>
         <div class="text-sm text-slate-500">点击 {{ site.clickCount }}</div>
-        <button class="inline-flex h-9 items-center justify-center gap-2 rounded-[8px] bg-rose-50 px-3 text-sm font-medium text-rose-600 hover:bg-rose-100" @click="removeSite(site.id)"><Trash2 class="h-4 w-4" />删除</button>
+        <div class="admin-list-actions"><button class="admin-button-danger" type="button" @click="removeSite(site.id)"><Trash2 class="h-4 w-4" />删除</button></div>
       </article>
+      <div v-if="!sites.data.value?.length" class="admin-empty">还没有站点，使用上方表单添加第一个入口。</div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.admin-input { height: 2.75rem; border-radius: 8px; border: 1px solid rgb(226 232 240); padding: 0 0.75rem; outline: none; }
-.admin-input:focus { border-color: rgb(34 211 238); box-shadow: 0 0 0 4px rgb(207 250 254); }
 details[open] > summary.admin-input { border-color: rgb(34 211 238); box-shadow: 0 0 0 4px rgb(207 250 254); }
 </style>

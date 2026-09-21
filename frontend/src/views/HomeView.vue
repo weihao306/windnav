@@ -26,6 +26,7 @@ const activeQuickFilter = ref('all')
 const recentSiteIds = ref<number[]>([])
 const themeMode = ref<'dark' | 'light'>('light')
 const systemTheme = ref<'dark' | 'light'>('light')
+const themeManuallySelected = ref(false)
 const selectedEngineSlug = ref('')
 const sidebarCollapsed = ref(false)
 const currentTime = ref(new Date())
@@ -137,7 +138,7 @@ const sectionBlocks = computed<HomeSection[]>(() => {
 })
 const isDarkMode = computed(() => themeMode.value === 'dark')
 const displayTime = computed(() => currentTime.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }))
-const searchPlaceholder = computed(() => '搜索站点、标签、描述或网址')
+const searchPlaceholder = computed(() => summary.value.search_placeholder || '搜索站点、标签、描述或网址')
 const totalSiteCount = computed(() => sites.value.length)
 const totalTagCount = computed(() => {
   const tagIds = new Set<number>()
@@ -153,6 +154,7 @@ const launcherTitle = computed(() => summary.value.site_title ?? 'WindNav')
 const launcherSubtitle = computed(() => summary.value.site_subtitle ?? '搜索优先的轻量导航启动器')
 
 function syncThemeFromSystem() {
+  if (themeManuallySelected.value) return
   systemTheme.value = mediaQuery?.matches ? 'dark' : 'light'
   themeMode.value = systemTheme.value
 }
@@ -181,6 +183,7 @@ onUnmounted(() => {
 })
 
 function toggleTheme() {
+  themeManuallySelected.value = true
   systemTheme.value = isDarkMode.value ? 'light' : 'dark'
   themeMode.value = systemTheme.value
 }
