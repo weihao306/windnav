@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useQuery } from '@tanstack/vue-query'
-import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Search, SearchX, Sun } from 'lucide-vue-next'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { ExternalLink, Globe2, LayoutDashboard, Moon, PanelLeftClose, PanelLeftOpen, Plus, Search, SearchX, Sun, X } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { getData, postData } from '../api/client'
 import type { Category, SearchEngine, SettingMap, Site } from '../api/types'
+import { useAuthStore } from '../stores/auth'
 
 type HomeSection = {
   key: string
@@ -34,6 +35,23 @@ const brokenIcons = ref(new Set<string>())
 const searchInputRef = ref<HTMLInputElement | null>(null)
 let clockTimer: number | undefined
 let mediaQuery: MediaQueryList | undefined
+
+const auth = useAuthStore()
+const queryClient = useQueryClient()
+const quickAddOpen = ref(false)
+const quickAddSaving = ref(false)
+const quickAddError = ref('')
+const quickAddTitleInput = ref<HTMLInputElement | null>(null)
+const quickAddForm = reactive({
+  categoryId: 0,
+  title: '',
+  url: '',
+  description: '',
+  iconUrl: '',
+  fallbackIcon: '',
+  isPinned: false,
+  isVisible: true,
+})
 
 const summaryQuery = useQuery({
   queryKey: ['public-summary'],
@@ -152,6 +170,7 @@ const totalTagCount = computed(() => {
 const filteredSiteCount = computed(() => filteredSites.value.length)
 const launcherTitle = computed(() => summary.value.site_title ?? 'WindNav')
 const launcherSubtitle = computed(() => summary.value.site_subtitle ?? '搜索优先的轻量导航启动器')
+const canSubmitQuickAdd = computed(() => quickAddForm.categoryId > 0 && Boolean(quickAddForm.title.trim()) && Boolean(quickAddForm.url.trim()))
 
 function syncThemeFromSystem() {
   if (themeManuallySelected.value) return
@@ -189,6 +208,12 @@ function toggleTheme() {
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && quickAddOpen.value) {
+    e.preventDefault()
+    closeQuickAdd()
+    return
+  }
+
   if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
     e.preventDefault()
     searchInputRef.value?.focus()
@@ -301,6 +326,51 @@ function getTagStyle(color?: string) {
       }
     : {}
 }
+
+function openQuickAdd() {
+  quickAddError.value = ''
+  quickAddForm.categoryId = categories.value.find((category) => category.isVisible)?.id ?? categories.value[0]?.id ?? 0
+  quickAddForm.title = ''
+  quickAddForm.url = ''
+  quickAddForm.description = ''
+  quickAddForm.iconUrl = ''
+  quickAddForm.fallbackIcon = ''
+  quickAddForm.isPinned = false
+  quickAddForm.isVisible = true
+  quickAddOpen.value = true
+  nextTick(() => quickAddTitleInput.value?.focus())
+}
+
+function closeQuickAdd() {
+  if (quickAddSaving.value) return
+  quickAddOpen.value = false
+}
+
+async function submitQuickAdd() {
+  if (!canSubmitQuickAdd.value || quickAddSaving.value) return
+  quickAddError.value = ''
+  quickAddSaving.value = true
+  try {
+    await postData('/admin/sites', {
+      categoryId: quickAddForm.categoryId,
+      title: quickAddForm.title.trim(),
+      url: quickAddForm.url.trim(),
+      description: quickAddForm.description.trim(),
+      iconUrl: quickAddForm.iconUrl.trim(),
+      fallbackIcon: quickAddForm.fallbackIcon.trim(),
+      sortOrder: 0,
+      isPinned: quickAddForm.isPinned,
+      isVisible: quickAddForm.isVisible,
+      tagIds: [],
+    })
+    await queryClient.invalidateQueries({ queryKey: ['public-sites'] })
+    quickAddOpen.value = false
+  } catch (err) {
+    quickAddError.value = err instanceof Error ? err.message : '保存失败'
+  } finally {
+    quickAddSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -316,9 +386,7 @@ function getTagStyle(color?: string) {
     <aside class="left-sidebar hidden xl:flex">
       <div class="sidebar-brand">
         <div class="brand-mark">
-          <svg width="40" height="40" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <use href="/icons.svg#windnav-icon" />
-          </svg>
+          <img src="/windmill.jpeg" alt="" />
         </div>
         <div class="sidebar-brand-text">
           <p>{{ summary.site_title ?? 'WindNav' }}</p>
@@ -394,6 +462,10 @@ function getTagStyle(color?: string) {
           <button class="theme-toggle" type="button" :aria-label="isDarkMode ? '切换到浅色模式' : '切换到深色模式'" @click="toggleTheme">
             <Sun v-if="isDarkMode" class="h-4 w-4" />
             <Moon v-else class="h-4 w-4" />
+          </button>
+          <button v-if="auth.isAuthenticated" class="quick-add-button" type="button" @click="openQuickAdd">
+            <Plus class="h-4 w-4" />
+            <span>快速添加</span>
           </button>
           <RouterLink to="/admin" class="admin-link">
             <LayoutDashboard class="h-4 w-4" />
@@ -576,5 +648,65 @@ function getTagStyle(color?: string) {
         <p>Powered by <strong>WindNav</strong> · {{ new Date().getFullYear() }}</p>
       </footer>
     </section>
+
+    <div v-if="quickAddOpen" class="quick-add-overlay" @click.self="closeQuickAdd">
+      <section class="quick-add-modal glass-panel" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
+        <header class="quick-add-head">
+          <div>
+            <p class="section-kicker">QUICK ADD</p>
+            <h2 id="quick-add-title" class="quick-add-title">添加新站点</h2>
+          </div>
+          <button class="quick-add-close" type="button" aria-label="关闭" @click="closeQuickAdd">
+            <X class="h-4 w-4" />
+          </button>
+        </header>
+
+        <form class="quick-add-form" @submit.prevent="submitQuickAdd">
+          <label class="quick-add-field">
+            <span>所属分类</span>
+            <select v-model.number="quickAddForm.categoryId" class="quick-add-input" required>
+              <option :value="0" disabled>选择分类</option>
+              <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+            </select>
+          </label>
+          <label class="quick-add-field">
+            <span>站点名称</span>
+            <input ref="quickAddTitleInput" v-model="quickAddForm.title" class="quick-add-input" placeholder="例如 GitHub" required />
+          </label>
+          <label class="quick-add-field">
+            <span>站点地址</span>
+            <input v-model="quickAddForm.url" class="quick-add-input" placeholder="https://example.com" required />
+          </label>
+          <label class="quick-add-field">
+            <span>站点描述</span>
+            <input v-model="quickAddForm.description" class="quick-add-input" placeholder="可选" />
+          </label>
+          <div class="quick-add-row">
+            <label class="quick-add-field">
+              <span>图标 URL</span>
+              <input v-model="quickAddForm.iconUrl" class="quick-add-input" placeholder="可选" />
+            </label>
+            <label class="quick-add-field">
+              <span>备用字母</span>
+              <input v-model="quickAddForm.fallbackIcon" class="quick-add-input" maxlength="1" placeholder="可选" />
+            </label>
+          </div>
+          <div class="quick-add-toggles">
+            <label class="quick-add-check"><input v-model="quickAddForm.isPinned" type="checkbox" />置顶推荐</label>
+            <label class="quick-add-check"><input v-model="quickAddForm.isVisible" type="checkbox" />公开显示</label>
+          </div>
+
+          <p v-if="quickAddError" class="quick-add-alert" role="alert">{{ quickAddError }}</p>
+
+          <footer class="quick-add-actions">
+            <button class="quick-add-cancel" type="button" @click="closeQuickAdd">取消</button>
+            <button class="quick-add-submit" type="submit" :disabled="!canSubmitQuickAdd || quickAddSaving">
+              <Plus class="h-4 w-4" />
+              {{ quickAddSaving ? '正在添加...' : '添加站点' }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
   </main>
 </template>

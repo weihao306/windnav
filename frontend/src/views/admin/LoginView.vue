@@ -33,9 +33,7 @@ async function submit() {
   <main class="admin-login">
     <form class="admin-login-card" @submit.prevent="submit">
       <RouterLink to="/" class="admin-login-brand" aria-label="返回首页">
-        <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <use href="/icons.svg#windnav-icon" />
-        </svg>
+        <img src="/windmill.jpeg" alt="" />
       </RouterLink>
       <h1>欢迎回来</h1>
       <p>登录 WindNav 管理工作台，维护你的导航内容与站点设置。</p>

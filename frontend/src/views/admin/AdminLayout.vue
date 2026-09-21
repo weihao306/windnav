@@ -18,9 +18,7 @@ function logout() {
       <aside class="admin-sidebar">
         <RouterLink to="/" class="admin-brand">
           <span class="admin-brand-mark">
-            <svg width="34" height="34" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <use href="/icons.svg#windnav-icon" />
-            </svg>
+            <img src="/windmill.jpeg" alt="" />
           </span>
           <span class="admin-brand-copy">
             <strong>WindNav</strong>
